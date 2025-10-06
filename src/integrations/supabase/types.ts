@@ -104,18 +104,21 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          role: string | null
         }
         Insert: {
           created_at?: string
           email: string
           full_name: string
           id: string
+          role?: string | null
         }
         Update: {
           created_at?: string
           email?: string
           full_name?: string
           id?: string
+          role?: string | null
         }
         Relationships: []
       }
@@ -145,11 +148,15 @@ export type Database = {
           description: string
           equipment: string
           id: string
+          maintenance_type:
+            | Database["public"]["Enums"]["maintenance_type"]
+            | null
           os_number: number
           photo_url: string | null
           priority: Database["public"]["Enums"]["os_priority"]
           requester_id: string
           sector_id: string
+          sla_target_hours: number | null
           status: Database["public"]["Enums"]["os_status"]
           technician_id: string | null
           updated_at: string
@@ -161,11 +168,15 @@ export type Database = {
           description: string
           equipment: string
           id?: string
+          maintenance_type?:
+            | Database["public"]["Enums"]["maintenance_type"]
+            | null
           os_number?: number
           photo_url?: string | null
           priority?: Database["public"]["Enums"]["os_priority"]
           requester_id: string
           sector_id: string
+          sla_target_hours?: number | null
           status?: Database["public"]["Enums"]["os_status"]
           technician_id?: string | null
           updated_at?: string
@@ -177,11 +188,15 @@ export type Database = {
           description?: string
           equipment?: string
           id?: string
+          maintenance_type?:
+            | Database["public"]["Enums"]["maintenance_type"]
+            | null
           os_number?: number
           photo_url?: string | null
           priority?: Database["public"]["Enums"]["os_priority"]
           requester_id?: string
           sector_id?: string
+          sla_target_hours?: number | null
           status?: Database["public"]["Enums"]["os_status"]
           technician_id?: string | null
           updated_at?: string
@@ -241,6 +256,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_priority_label: {
+        Args: { priority: Database["public"]["Enums"]["os_priority"] }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -251,8 +270,9 @@ export type Database = {
     }
     Enums: {
       app_role: "solicitante" | "tecnico" | "coordenacao"
+      maintenance_type: "corretiva" | "preventiva" | "instalacao"
       os_category: "eletrica" | "hidraulica" | "equipamento_medico" | "outros"
-      os_priority: "normal" | "urgente"
+      os_priority: "baixa" | "media" | "alta" | "critica"
       os_status: "aberta" | "em_andamento" | "concluida" | "cancelada"
     }
     CompositeTypes: {
@@ -382,8 +402,9 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["solicitante", "tecnico", "coordenacao"],
+      maintenance_type: ["corretiva", "preventiva", "instalacao"],
       os_category: ["eletrica", "hidraulica", "equipamento_medico", "outros"],
-      os_priority: ["normal", "urgente"],
+      os_priority: ["baixa", "media", "alta", "critica"],
       os_status: ["aberta", "em_andamento", "concluida", "cancelada"],
     },
   },
