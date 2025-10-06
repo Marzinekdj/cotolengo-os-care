@@ -27,11 +27,11 @@ const Administration = () => {
   useEffect(() => {
     if (!profile) {
       navigate('/auth');
-    } else if (profile.role !== 'coordenacao' && profile.role !== 'tecnico') {
+    } else if (profile.role !== 'coordenacao') {
       navigate('/dashboard');
       toast({
         title: 'Acesso negado',
-        description: 'Você não tem permissão para acessar esta página',
+        description: 'Apenas coordenação pode acessar esta página',
         variant: 'destructive',
       });
     } else {
@@ -215,14 +215,13 @@ const Administration = () => {
                   <h3 className="font-semibold mb-2">Níveis de Acesso</h3>
                   <ul className="space-y-2 text-sm">
                     <li>
-                      <strong>Coordenação:</strong> Acesso completo, gerencia usuários, atribui técnicos, acessa
-                      dashboards
+                      <strong>Coordenação:</strong> Acesso completo - gerencia usuários, atribui técnicos, acessa dashboards e administração
                     </li>
                     <li>
-                      <strong>Técnico:</strong> Vê O.S. atribuídas e do seu setor, atualiza status, conclui
+                      <strong>Técnico:</strong> Vê apenas O.S. atribuídas a ele OU do seu setor, atualiza status e conclui. SEM acesso a dashboards ou administração
                     </li>
                     <li>
-                      <strong>Solicitante:</strong> Cria O.S., acompanha suas solicitações, pode reabrir
+                      <strong>Solicitante:</strong> Cria O.S., acompanha apenas suas próprias solicitações
                     </li>
                   </ul>
                 </div>

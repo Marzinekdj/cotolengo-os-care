@@ -105,6 +105,7 @@ export type Database = {
           full_name: string
           id: string
           role: string | null
+          sector_id: string | null
         }
         Insert: {
           created_at?: string
@@ -112,6 +113,7 @@ export type Database = {
           full_name: string
           id: string
           role?: string | null
+          sector_id?: string | null
         }
         Update: {
           created_at?: string
@@ -119,8 +121,17 @@ export type Database = {
           full_name?: string
           id?: string
           role?: string | null
+          sector_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sectors: {
         Row: {

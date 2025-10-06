@@ -44,10 +44,21 @@ const OSList = () => {
 
   const fetchServiceOrders = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('service_orders')
         .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name)')
         .order('created_at', { ascending: false });
+
+      // Filtrar baseado no role
+      if (profile?.role === 'solicitante') {
+        query = query.eq('requester_id', profile.id);
+      } else if (profile?.role === 'tecnico') {
+        // RLS já filtra (atribuídas OU do setor), mas podemos deixar explícito
+        // Técnico vê O.S. onde technician_id = seu_id OU sector_id = seu_setor
+      }
+      // Coordenação vê todas (sem filtro adicional)
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setServiceOrders(data || []);

@@ -50,6 +50,8 @@ const AnalyticsDashboard = () => {
   useEffect(() => {
     if (!profile) {
       navigate('/auth');
+    } else if (profile.role !== 'coordenacao') {
+      navigate('/dashboard');
     } else {
       fetchStats();
     }

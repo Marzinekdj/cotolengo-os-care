@@ -42,11 +42,21 @@ const Dashboard = () => {
 
   const fetchServiceOrders = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('service_orders')
         .select('*, sectors(name)')
         .order('created_at', { ascending: false })
         .limit(10);
+
+      // Filtrar baseado no role (RLS já filtra, mas deixamos explícito)
+      if (profile?.role === 'solicitante') {
+        query = query.eq('requester_id', profile.id);
+      } else if (profile?.role === 'tecnico') {
+        // Técnico vê O.S. atribuídas a ele OU do setor dele
+        // RLS já faz isso, mas podemos deixar explícito aqui se necessário
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setServiceOrders(data || []);
@@ -259,10 +269,12 @@ const Dashboard = () => {
             <Plus className="h-5 w-5" />
             Nova O.S.
           </Button>
-          <Button onClick={() => navigate('/analytics')} className="w-full gap-2" variant="outline">
-            📊 Dashboards
-          </Button>
-          {(profile?.role === 'coordenacao' || profile?.role === 'tecnico') && (
+          {profile?.role === 'coordenacao' && (
+            <Button onClick={() => navigate('/analytics')} className="w-full gap-2" variant="outline">
+              📊 Dashboards
+            </Button>
+          )}
+          {profile?.role === 'coordenacao' && (
             <Button onClick={() => navigate('/admin')} className="w-full gap-2" variant="outline">
               ⚙️ Administração
             </Button>
