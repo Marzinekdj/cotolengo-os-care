@@ -73,11 +73,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       setProfile({
         ...profileData,
-        role: roleData?.role as 'solicitante' | 'tecnico' | 'coordenacao'
+        role: (roleData?.role || 'solicitante') as 'solicitante' | 'tecnico' | 'coordenacao'
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
