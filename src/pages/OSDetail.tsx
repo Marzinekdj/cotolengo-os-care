@@ -167,6 +167,17 @@ const OSDetail = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
+  const getPriorityBadge = (priority: string) => {
+    const priorityConfig = {
+      critica: { label: 'Crítica', className: 'bg-red-500 text-white' },
+      alta: { label: 'Alta', className: 'bg-orange-500 text-white' },
+      media: { label: 'Média', className: 'bg-yellow-500 text-white' },
+      baixa: { label: 'Baixa', className: 'bg-blue-500 text-white' },
+    };
+    const config = priorityConfig[priority as keyof typeof priorityConfig];
+    return <Badge className={config?.className}>{config?.label}</Badge>;
+  };
+
   const getCategoryLabel = (category: string) => {
     const categories = {
       eletrica: 'Elétrica',
@@ -204,10 +215,8 @@ const OSDetail = () => {
                 </p>
               </div>
               <div className="flex gap-2">
+                {getPriorityBadge(serviceOrder.priority)}
                 {getStatusBadge(serviceOrder.status)}
-                {serviceOrder.priority === 'urgente' && (
-                  <Badge variant="destructive">🔴 Urgente</Badge>
-                )}
               </div>
             </div>
           </CardHeader>

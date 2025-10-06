@@ -83,11 +83,14 @@ const Dashboard = () => {
   };
 
   const getPriorityBadge = (priority: string) => {
-    return priority === 'urgente' ? (
-      <Badge variant="destructive">🔴 Urgente</Badge>
-    ) : (
-      <Badge variant="secondary">🟢 Normal</Badge>
-    );
+    const priorityConfig = {
+      critica: { label: 'Crítica', className: 'bg-red-500 text-white' },
+      alta: { label: 'Alta', className: 'bg-orange-500 text-white' },
+      media: { label: 'Média', className: 'bg-yellow-500 text-white' },
+      baixa: { label: 'Baixa', className: 'bg-blue-500 text-white' },
+    };
+    const config = priorityConfig[priority as keyof typeof priorityConfig];
+    return <Badge className={config?.className}>{config?.label}</Badge>;
   };
 
   const getCategoryLabel = (category: string) => {
@@ -247,10 +250,23 @@ const Dashboard = () => {
           </div>
         )}
 
-        <div className="mt-6 text-center">
-          <Button variant="outline" onClick={() => navigate('/os-list')}>
-            Ver todas as O.S.
+        <div className="mt-8 grid gap-3 md:grid-cols-2 max-w-2xl mx-auto">
+          <Button onClick={() => navigate('/os-list')} className="w-full gap-2">
+            <FileText className="h-5 w-5" />
+            Ver Todas as O.S.
           </Button>
+          <Button onClick={() => navigate('/new-os')} className="w-full gap-2" variant="default">
+            <Plus className="h-5 w-5" />
+            Nova O.S.
+          </Button>
+          <Button onClick={() => navigate('/analytics')} className="w-full gap-2" variant="outline">
+            📊 Dashboards
+          </Button>
+          {(profile?.role === 'coordenacao' || profile?.role === 'tecnico') && (
+            <Button onClick={() => navigate('/admin')} className="w-full gap-2" variant="outline">
+              ⚙️ Administração
+            </Button>
+          )}
         </div>
       </main>
     </div>

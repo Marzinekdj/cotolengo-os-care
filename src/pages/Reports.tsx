@@ -37,7 +37,7 @@ const Reports = () => {
         const totalOpen = allOrders.filter(os => os.status === 'aberta').length;
         const totalInProgress = allOrders.filter(os => os.status === 'em_andamento').length;
         const totalCompleted = allOrders.filter(os => os.status === 'concluida').length;
-        const totalUrgent = allOrders.filter(os => os.priority === 'urgente').length;
+        const totalUrgent = allOrders.filter(os => os.priority === 'critica').length;
 
         const completedOrders = allOrders.filter(os => os.completed_at);
         let avgTime = 0;

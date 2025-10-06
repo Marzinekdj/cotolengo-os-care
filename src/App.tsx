@@ -12,6 +12,8 @@ import OSDetail from "./pages/OSDetail";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
+import Administration from "./pages/Administration";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/analytics" element={<AnalyticsDashboard />} />
+            <Route path="/admin" element={<Administration />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

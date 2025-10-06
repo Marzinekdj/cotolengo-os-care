@@ -29,7 +29,9 @@ const NewOS = () => {
     sectorId: '',
     equipment: '',
     description: '',
-    isUrgent: false,
+    priority: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
+    slaTargetHours: 24,
+    maintenanceType: 'corretiva' as 'corretiva' | 'preventiva' | 'instalacao',
     photoUrl: '',
   });
 
@@ -57,7 +59,7 @@ const NewOS = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.category || !formData.sectorId || !formData.equipment || !formData.description) {
+    if (!formData.category || !formData.sectorId || !formData.equipment || !formData.description || !formData.priority) {
       toast({
         title: 'Campos obrigatórios',
         description: 'Por favor, preencha todos os campos obrigatórios',
@@ -69,7 +71,7 @@ const NewOS = () => {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('service_orders')
         .insert([
           {
@@ -77,7 +79,9 @@ const NewOS = () => {
             sector_id: formData.sectorId,
             equipment: formData.equipment,
             description: formData.description,
-            priority: (formData.isUrgent ? 'urgente' : 'normal') as 'urgente' | 'normal',
+            priority: formData.priority,
+            sla_target_hours: formData.slaTargetHours,
+            maintenance_type: formData.maintenanceType,
             requester_id: profile?.id,
             photo_url: formData.photoUrl || null,
           },
@@ -87,9 +91,16 @@ const NewOS = () => {
 
       if (error) throw error;
 
+      const priorityLabels = {
+        critica: 'Crítica',
+        alta: 'Alta',
+        media: 'Média',
+        baixa: 'Baixa',
+      };
+      
       toast({
-        title: 'O.S. criada com sucesso!',
-        description: `O.S. #${data.os_number} foi registrada`,
+        title: '✅ O.S. criada com sucesso!',
+        description: `O.S. #${data.os_number} criada com prioridade ${priorityLabels[formData.priority]}`,
       });
 
       setTimeout(() => {
@@ -173,7 +184,7 @@ const NewOS = () => {
                 <Label htmlFor="description">Descrição do problema *</Label>
                 <Textarea
                   id="description"
-                  placeholder="Descreva o problema com detalhes..."
+                  placeholder="Explique o que está acontecendo e, se possível, a localização exata."
                   className="min-h-32"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -181,18 +192,66 @@ const NewOS = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="space-y-0.5">
-                  <Label htmlFor="urgent">Urgência</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Marcar como urgente dará prioridade à O.S.
-                  </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="priority">Prioridade *</Label>
+                  <p className="text-xs text-muted-foreground">Usar Crítica apenas quando há impacto direto em segurança/assistência</p>
                 </div>
-                <Switch
-                  id="urgent"
-                  checked={formData.isUrgent}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isUrgent: checked })}
-                />
+                <Select 
+                  value={formData.priority} 
+                  onValueChange={(value: 'baixa' | 'media' | 'alta' | 'critica') => {
+                    const newSla = value === 'critica' ? 4 : value === 'alta' ? 8 : value === 'media' ? 24 : 72;
+                    setFormData({ ...formData, priority: value, slaTargetHours: newSla });
+                  }}
+                >
+                  <SelectTrigger id="priority">
+                    <SelectValue placeholder="Selecione a prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baixa">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                        Baixa
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="media">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                        Média
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="alta">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-orange-500"></span>
+                        Alta
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="critica">
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                        Crítica
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sla">SLA alvo</Label>
+                <Select 
+                  value={formData.slaTargetHours.toString()} 
+                  onValueChange={(value) => setFormData({ ...formData, slaTargetHours: parseInt(value) })}
+                >
+                  <SelectTrigger id="sla">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="4">4 horas</SelectItem>
+                    <SelectItem value="8">8 horas</SelectItem>
+                    <SelectItem value="24">24 horas</SelectItem>
+                    <SelectItem value="72">72 horas</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

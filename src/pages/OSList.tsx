@@ -87,6 +87,17 @@ const OSList = () => {
     return <Badge className={config.className}>{config.label}</Badge>;
   };
 
+  const getPriorityBadge = (priority: string) => {
+    const priorityConfig = {
+      critica: { label: 'Crítica', className: 'bg-red-500 text-white' },
+      alta: { label: 'Alta', className: 'bg-orange-500 text-white' },
+      media: { label: 'Média', className: 'bg-yellow-500 text-white' },
+      baixa: { label: 'Baixa', className: 'bg-blue-500 text-white' },
+    };
+    const config = priorityConfig[priority as keyof typeof priorityConfig];
+    return <Badge className={config?.className}>{config?.label}</Badge>;
+  };
+
   const getCategoryLabel = (category: string) => {
     const categories = {
       eletrica: 'Elétrica',
@@ -111,8 +122,8 @@ const OSList = () => {
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">Todas as Ordens de Serviço</h1>
 
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por número, equipamento ou setor..."
@@ -122,7 +133,7 @@ const OSList = () => {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
+            <SelectTrigger>
               <SelectValue placeholder="Filtrar por status" />
             </SelectTrigger>
             <SelectContent>
