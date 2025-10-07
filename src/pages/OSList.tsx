@@ -29,6 +29,7 @@ const OSList = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [prioritySort, setPrioritySort] = useState('none');
 
   useEffect(() => {
     if (!profile) {
@@ -40,7 +41,7 @@ const OSList = () => {
 
   useEffect(() => {
     filterOrders();
-  }, [serviceOrders, statusFilter, searchTerm]);
+  }, [serviceOrders, statusFilter, searchTerm, prioritySort]);
 
   const fetchServiceOrders = async () => {
     try {
@@ -82,6 +83,16 @@ const OSList = () => {
         os.equipment.toLowerCase().includes(searchTerm.toLowerCase()) ||
         os.sectors.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
+    }
+
+    // Ordenar por prioridade
+    if (prioritySort === 'high-to-low') {
+      const priorityOrder = { critica: 0, alta: 1, media: 2, baixa: 3 };
+      filtered.sort((a, b) => {
+        const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 999;
+        const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 999;
+        return aPriority - bPriority;
+      });
     }
 
     setFilteredOrders(filtered);
@@ -133,8 +144,8 @@ const OSList = () => {
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">Todas as Ordens de Serviço</h1>
 
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="sm:col-span-1 relative">
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-2 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por número, equipamento ou setor..."
@@ -147,12 +158,21 @@ const OSList = () => {
             <SelectTrigger>
               <SelectValue placeholder="Filtrar por status" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-card z-50">
               <SelectItem value="all">Todos os status</SelectItem>
               <SelectItem value="aberta">Aberta</SelectItem>
               <SelectItem value="em_andamento">Em andamento</SelectItem>
               <SelectItem value="concluida">Concluída</SelectItem>
               <SelectItem value="cancelada">Cancelada</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={prioritySort} onValueChange={setPrioritySort}>
+            <SelectTrigger>
+              <SelectValue placeholder="Ordenar por prioridade" />
+            </SelectTrigger>
+            <SelectContent className="bg-card z-50">
+              <SelectItem value="none">Sem ordenação</SelectItem>
+              <SelectItem value="high-to-low">Crítica → Baixa</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -181,9 +201,7 @@ const OSList = () => {
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-bold">O.S. #{os.os_number}</h3>
                         {getStatusBadge(os.status)}
-                        {os.priority === 'urgente' && (
-                          <Badge variant="destructive">🔴 Urgente</Badge>
-                        )}
+                        {getPriorityBadge(os.priority)}
                       </div>
                       <div className="grid gap-2 text-sm">
                         <div>
