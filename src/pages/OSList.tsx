@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, Camera } from 'lucide-react';
 
 interface ServiceOrder {
   id: string;
@@ -17,6 +17,7 @@ interface ServiceOrder {
   priority: string;
   equipment: string;
   created_at: string;
+  photo_url: string | null;
   sectors: { name: string };
   profiles: { full_name: string };
 }
@@ -47,7 +48,7 @@ const OSList = () => {
     try {
       let query = supabase
         .from('service_orders')
-        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name)')
+        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name), photo_url')
         .order('created_at', { ascending: false });
 
       // Filtrar baseado no role
@@ -202,6 +203,11 @@ const OSList = () => {
                         <h3 className="text-xl font-bold">O.S. #{os.os_number}</h3>
                         {getStatusBadge(os.status)}
                         {getPriorityBadge(os.priority)}
+                        {os.photo_url && (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Camera className="h-3 w-3" />
+                          </Badge>
+                        )}
                       </div>
                       <div className="grid gap-2 text-sm">
                         <div>

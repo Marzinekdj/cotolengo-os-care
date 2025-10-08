@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Home, Settings, Bell, FileText, LogOut, Wrench, BarChart3 } from 'lucide-react';
+import { Plus, Home, Settings, Bell, FileText, LogOut, Wrench, BarChart3, Camera } from 'lucide-react';
 import logoCotolengo from '@/assets/logo-cotolengo.png';
 
 interface ServiceOrder {
@@ -17,6 +17,7 @@ interface ServiceOrder {
   priority: string;
   equipment: string;
   created_at: string;
+  photo_url: string | null;
   sectors: { name: string };
 }
 
@@ -44,7 +45,7 @@ const Dashboard = () => {
     try {
       let query = supabase
         .from('service_orders')
-        .select('*, sectors(name)')
+        .select('*, sectors(name), photo_url')
         .order('created_at', { ascending: false })
         .limit(10);
 
@@ -241,7 +242,14 @@ const Dashboard = () => {
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Status:</span>
-                    {getStatusBadge(os.status)}
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(os.status)}
+                      {os.photo_url && (
+                        <Badge variant="outline" className="gap-1 text-xs">
+                          <Camera className="h-3 w-3" />
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <span className="text-sm text-muted-foreground">Categoria: </span>
