@@ -22,6 +22,7 @@ interface ServiceOrderDetail {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  photo_url: string | null;
   sectors: { name: string };
   profiles: { full_name: string };
 }
@@ -244,6 +245,20 @@ const OSDetail = () => {
               <p className="text-sm text-muted-foreground mb-2">Descrição do problema</p>
               <p className="whitespace-pre-wrap">{serviceOrder.description}</p>
             </div>
+            {serviceOrder.photo_url && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Foto anexada</p>
+                  <img 
+                    src={serviceOrder.photo_url} 
+                    alt="Foto da O.S."
+                    className="max-w-full max-h-96 rounded-lg border shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => window.open(serviceOrder.photo_url!, '_blank')}
+                  />
+                </div>
+              </>
+            )}
             {serviceOrder.completed_at && (
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle className="h-5 w-5" />

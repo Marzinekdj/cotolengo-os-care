@@ -23,6 +23,8 @@ const NewOS = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   
   const [formData, setFormData] = useState({
     category: '',
@@ -56,6 +58,61 @@ const NewOS = () => {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Tipo inválido',
+          description: 'Por favor, selecione apenas arquivos de imagem',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'Arquivo muito grande',
+          description: 'O tamanho máximo é 5MB',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadPhoto = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile?.id}/${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('service-orders-photos')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('service-orders-photos')
+        .getPublicUrl(data.path);
+      
+      return publicUrl;
+    } catch (error: any) {
+      toast({
+        title: 'Erro no upload',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -71,6 +128,15 @@ const NewOS = () => {
     setIsLoading(true);
 
     try {
+      let photoUrl = null;
+      
+      if (selectedFile) {
+        photoUrl = await uploadPhoto(selectedFile);
+        if (!photoUrl) {
+          throw new Error('Falha no upload da foto');
+        }
+      }
+
       const { data, error} = await supabase
         .from('service_orders')
         .insert([
@@ -83,7 +149,7 @@ const NewOS = () => {
             sla_target_hours: formData.slaTargetHours,
             maintenance_type: formData.maintenanceType,
             requester_id: profile?.id,
-            photo_url: formData.photoUrl || null,
+            photo_url: photoUrl,
           },
         ])
         .select()
@@ -256,12 +322,56 @@ const NewOS = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="photo">Anexar Foto (opcional)</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer">
-                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Clique para adicionar uma foto (em breve)
-                  </p>
-                </div>
+                
+                <input
+                  id="photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                
+                <label
+                  htmlFor="photo"
+                  className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors cursor-pointer block"
+                >
+                  {previewUrl ? (
+                    <div className="space-y-2">
+                      <img 
+                        src={previewUrl} 
+                        alt="Preview" 
+                        className="max-h-48 mx-auto rounded-lg"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Clique para trocar a foto
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Clique para adicionar uma foto
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Máximo 5MB (JPG, PNG, WEBP)
+                      </p>
+                    </>
+                  )}
+                </label>
+                
+                {selectedFile && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setPreviewUrl('');
+                    }}
+                  >
+                    Remover foto
+                  </Button>
+                )}
               </div>
 
               <div className="flex gap-4">
