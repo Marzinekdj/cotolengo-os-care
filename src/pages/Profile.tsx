@@ -108,13 +108,7 @@ const Profile = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-destructive">Zona de Perigo</CardTitle>
-            <CardDescription>
-              Ações irreversíveis da conta
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Button
               variant="destructive"
               onClick={signOut}
