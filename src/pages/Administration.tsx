@@ -109,20 +109,40 @@ const Administration = () => {
 
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
     try {
-      const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+      // 1. Atualizar a tabela profiles (para compatibilidade visual)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // 2. Deletar o role antigo da tabela user_roles
+      const { error: deleteError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (deleteError) throw deleteError;
+
+      // 3. Inserir o novo role na tabela user_roles
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert([{ user_id: userId, role: newRole as any }]);
+
+      if (insertError) throw insertError;
 
       toast({
         title: 'Perfil atualizado',
-        description: 'O perfil do usuário foi atualizado',
+        description: 'O perfil do usuário foi atualizado com sucesso',
       });
 
       fetchData();
     } catch (error: any) {
+      console.error('Erro ao atualizar role:', error);
       toast({
         title: 'Erro',
-        description: error.message,
+        description: error.message || 'Erro ao atualizar perfil',
         variant: 'destructive',
       });
     }
