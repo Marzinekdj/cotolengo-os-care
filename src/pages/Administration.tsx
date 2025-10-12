@@ -43,14 +43,26 @@ const Administration = () => {
     setLoading(true);
     try {
       const [usersRes, sectorsRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('full_name'),
+        supabase
+          .from('profiles')
+          .select(`
+            *,
+            user_roles!inner(role)
+          `)
+          .order('full_name'),
         supabase.from('sectors').select('*').order('name'),
       ]);
 
       if (usersRes.error) throw usersRes.error;
       if (sectorsRes.error) throw sectorsRes.error;
 
-      setUsers(usersRes.data || []);
+      // Mapear os dados para extrair o role correto de user_roles
+      const usersWithRoles = (usersRes.data || []).map((user: any) => ({
+        ...user,
+        role: user.user_roles?.[0]?.role || user.role
+      }));
+
+      setUsers(usersWithRoles);
       setSectors(sectorsRes.data || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
