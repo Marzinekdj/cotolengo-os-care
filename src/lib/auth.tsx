@@ -8,6 +8,9 @@ interface UserProfile {
   full_name: string;
   email: string;
   role?: 'solicitante' | 'tecnico' | 'coordenacao';
+  phone?: string;
+  avatar_url?: string;
+  sector_id?: string;
 }
 
 interface AuthContextType {
