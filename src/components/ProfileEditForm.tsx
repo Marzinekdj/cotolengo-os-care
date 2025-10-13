@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Upload, X } from 'lucide-react';
+import { AvatarEditor } from './AvatarEditor';
 
 const profileSchema = z.object({
   full_name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
@@ -37,6 +38,8 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url || null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [selectedImageForEdit, setSelectedImageForEdit] = useState<string | null>(null);
 
   const {
     register,
@@ -65,22 +68,43 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
       return;
     }
 
-    // Validar tamanho (máx 2MB)
-    if (file.size > 2 * 1024 * 1024) {
+    // Validar tamanho (máx 5MB - aumentado pois será redimensionado)
+    if (file.size > 5 * 1024 * 1024) {
       toast({
         title: 'Erro',
-        description: 'A imagem deve ter no máximo 2MB',
+        description: 'A imagem deve ter no máximo 5MB',
         variant: 'destructive',
       });
       return;
     }
 
-    setAvatarFile(file);
+    // Abrir editor em vez de aplicar diretamente
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSelectedImageForEdit(reader.result as string);
+      setIsEditorOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedImageBlob: Blob) => {
+    // Converter Blob para File
+    const croppedFile = new File(
+      [croppedImageBlob],
+      'avatar.jpg',
+      { type: 'image/jpeg' }
+    );
+    
+    setAvatarFile(croppedFile);
+    
+    // Atualizar preview
     const reader = new FileReader();
     reader.onloadend = () => {
       setAvatarPreview(reader.result as string);
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(croppedFile);
+    
+    setIsEditorOpen(false);
   };
 
   const uploadAvatar = async (): Promise<string | null> => {
@@ -197,9 +221,18 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Avatar */}
-      <div className="flex flex-col items-center gap-4">
+    <>
+      {isEditorOpen && selectedImageForEdit && (
+        <AvatarEditor
+          imageSrc={selectedImageForEdit}
+          onCropComplete={handleCropComplete}
+          onCancel={() => setIsEditorOpen(false)}
+        />
+      )}
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-4">
         <Avatar className="h-24 w-24">
           <AvatarImage src={avatarPreview || undefined} />
           <AvatarFallback className="text-2xl">
@@ -293,6 +326,7 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
           )}
         </Button>
       </div>
-    </form>
+      </form>
+    </>
   );
 };
