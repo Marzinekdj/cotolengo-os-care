@@ -38,6 +38,7 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url || null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedImageForEdit, setSelectedImageForEdit] = useState<string | null>(null);
 
@@ -96,6 +97,7 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
     );
     
     setAvatarFile(croppedFile);
+    setAvatarRemoved(false);
     
     // Atualizar preview
     const reader = new FileReader();
@@ -171,6 +173,7 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
 
       setAvatarPreview(null);
       setAvatarFile(null);
+      setAvatarRemoved(true);
 
       toast({
         title: 'Sucesso',
@@ -189,8 +192,12 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
     try {
       let avatarUrl = profile.avatar_url;
 
-      // Upload do avatar se houver
-      if (avatarFile) {
+      // Se foi removido, definir como null
+      if (avatarRemoved) {
+        avatarUrl = null;
+      }
+      // Se tem novo arquivo, fazer upload
+      else if (avatarFile) {
         const newAvatarUrl = await uploadAvatar();
         if (newAvatarUrl) avatarUrl = newAvatarUrl;
       }
