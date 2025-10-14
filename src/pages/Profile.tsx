@@ -105,7 +105,7 @@ const Profile = () => {
               <>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={profile?.avatar_url || undefined} />
+                    <AvatarImage src={profile?.avatar_url ? `${profile.avatar_url}?t=${Date.now()}` : undefined} />
                     <AvatarFallback className="text-2xl">
                       {profile?.full_name?.charAt(0).toUpperCase()}
                     </AvatarFallback>

@@ -112,12 +112,24 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
 
     setUploading(true);
     try {
+      // Deletar arquivo antigo primeiro (se existir)
+      if (profile.avatar_url) {
+        const oldFileName = profile.avatar_url.split('/').pop()?.split('?')[0];
+        if (oldFileName) {
+          await supabase.storage
+            .from('avatars')
+            .remove([`${profile.id}/${oldFileName}`]);
+        }
+      }
+
+      // Upload com timestamp único
       const fileExt = avatarFile.name.split('.').pop();
-      const fileName = `${profile.id}/avatar.${fileExt}`;
+      const timestamp = Date.now();
+      const fileName = `${profile.id}/avatar-${timestamp}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, avatarFile, { upsert: true });
+        .upload(fileName, avatarFile);
 
       if (uploadError) throw uploadError;
 
@@ -137,12 +149,17 @@ export const ProfileEditForm = ({ profile, onSuccess, onCancel }: ProfileEditFor
 
   const removeAvatar = async () => {
     try {
-      // Remover do storage
-      const { error: deleteError } = await supabase.storage
-        .from('avatars')
-        .remove([`${profile.id}/avatar`]);
+      // Extrair nome do arquivo da URL
+      if (profile.avatar_url) {
+        const fileName = profile.avatar_url.split('/').pop()?.split('?')[0];
+        if (fileName) {
+          const { error: deleteError } = await supabase.storage
+            .from('avatars')
+            .remove([`${profile.id}/${fileName}`]);
 
-      if (deleteError) throw deleteError;
+          if (deleteError) throw deleteError;
+        }
+      }
 
       // Atualizar no banco
       const { error: updateError } = await supabase
