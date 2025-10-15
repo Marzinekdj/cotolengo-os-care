@@ -159,12 +159,163 @@ const Reports = () => {
     }
   };
 
-  const handleExportReport = () => {
-    toast({
-      title: '✅ Relatório gerado com sucesso!',
-      description: `Arquivo ${exportFormat.toUpperCase()} dos últimos ${exportPeriod} dias será baixado em breve.`,
-    });
+  const generateCSVReport = async () => {
+    try {
+      const daysAgo = parseInt(exportPeriod);
+      const startDate = subDays(new Date(), daysAgo);
+
+      const { data: orders } = await supabase
+        .from('service_orders')
+        .select('*, sectors(name), profiles!requester_id(full_name)')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (!orders || orders.length === 0) {
+        toast({
+          title: 'Nenhum dado encontrado',
+          description: `Não há O.S. registradas nos últimos ${exportPeriod} dias.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Cabeçalho do CSV
+      const headers = [
+        'Número OS',
+        'Setor',
+        'Equipamento',
+        'Descrição',
+        'Status',
+        'Prioridade',
+        'Tipo Manutenção',
+        'Solicitante',
+        'Data Abertura',
+        'Data Conclusão'
+      ];
+
+      // Mapear dados para CSV
+      const rows = orders.map(os => [
+        os.os_number,
+        os.sectors?.name || 'N/A',
+        os.equipment,
+        os.description.replace(/"/g, '""'), // Escapar aspas
+        os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
+        os.priority === 'critica' ? 'Crítica' : os.priority === 'alta' ? 'Alta' : os.priority === 'media' ? 'Média' : 'Baixa',
+        os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
+        os.profiles?.full_name || 'N/A',
+        format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+        os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Não concluída'
+      ]);
+
+      // Construir CSV
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Criar Blob e fazer download
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio-os-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: '✅ Relatório CSV gerado com sucesso!',
+        description: `${orders.length} O.S. exportadas.`,
+      });
+    } catch (error) {
+      console.error('Erro ao gerar CSV:', error);
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o arquivo CSV.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const generatePDFReport = async () => {
+    try {
+      // Importar jsPDF dinamicamente
+      const { default: jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
+
+      const daysAgo = parseInt(exportPeriod);
+      const startDate = subDays(new Date(), daysAgo);
+
+      const { data: orders } = await supabase
+        .from('service_orders')
+        .select('*, sectors(name), profiles!requester_id(full_name)')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (!orders || orders.length === 0) {
+        toast({
+          title: 'Nenhum dado encontrado',
+          description: `Não há O.S. registradas nos últimos ${exportPeriod} dias.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const doc = new jsPDF('landscape');
+
+      // Cabeçalho
+      doc.setFontSize(18);
+      doc.text('Relatório de Ordens de Serviço', 14, 20);
+      doc.setFontSize(11);
+      doc.text(`Período: Últimos ${exportPeriod} dias`, 14, 28);
+      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 34);
+
+      // Tabela
+      const tableData = orders.map(os => [
+        os.os_number.toString(),
+        os.sectors?.name || 'N/A',
+        os.equipment,
+        os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
+        os.priority === 'critica' ? 'Crítica' : os.priority === 'alta' ? 'Alta' : os.priority === 'media' ? 'Média' : 'Baixa',
+        format(new Date(os.created_at), 'dd/MM/yyyy', { locale: ptBR }),
+      ]);
+
+      (doc as any).autoTable({
+        head: [['Nº OS', 'Setor', 'Equipamento', 'Status', 'Prioridade', 'Data']],
+        body: tableData,
+        startY: 40,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 123, 127] }, // Cor primária do app
+        styles: { fontSize: 9 },
+        margin: { top: 40 },
+      });
+
+      // Salvar PDF
+      doc.save(`relatorio-os-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`);
+
+      toast({
+        title: '✅ Relatório PDF gerado com sucesso!',
+        description: `${orders.length} O.S. exportadas.`,
+      });
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast({
+        title: 'Erro ao gerar relatório',
+        description: 'Não foi possível gerar o arquivo PDF.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportReport = async () => {
     setIsExportOpen(false);
+    
+    if (exportFormat === 'csv') {
+      await generateCSVReport();
+    } else {
+      await generatePDFReport();
+    }
   };
 
   const COLORS = {
