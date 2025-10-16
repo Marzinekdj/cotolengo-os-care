@@ -112,7 +112,7 @@ const Auth = () => {
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <Play className="h-5 w-5 text-primary flex-shrink-0" />
                 <div className="text-left flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">Precisa de ajuda?</p>
+                  <p className="text-sm font-medium text-foreground">Precisa de ajuda para usar o App?</p>
                   <p className="text-xs text-muted-foreground hidden sm:block">Vídeo rápido</p>
                 </div>
               </div>
