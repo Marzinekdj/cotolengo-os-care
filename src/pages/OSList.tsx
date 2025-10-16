@@ -94,6 +94,13 @@ const OSList = () => {
         const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 999;
         return aPriority - bPriority;
       });
+    } else if (prioritySort === 'low-to-high') {
+      const priorityOrder = { baixa: 0, media: 1, alta: 2, critica: 3 };
+      filtered.sort((a, b) => {
+        const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 999;
+        const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 999;
+        return aPriority - bPriority;
+      });
     }
 
     setFilteredOrders(filtered);
@@ -174,6 +181,7 @@ const OSList = () => {
             <SelectContent className="bg-card z-50">
               <SelectItem value="none">Sem ordenação</SelectItem>
               <SelectItem value="high-to-low">Crítica → Baixa</SelectItem>
+              <SelectItem value="low-to-high">Baixa → Crítica</SelectItem>
             </SelectContent>
           </Select>
         </div>
