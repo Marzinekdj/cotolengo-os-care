@@ -559,6 +559,7 @@ const Reports = () => {
                       outerRadius={80}
                       fill="hsl(var(--primary))"
                       dataKey="value"
+                      style={{ fontSize: '14px', fontWeight: '600', fill: 'hsl(var(--foreground))' }}
                     >
                       {maintenanceTypeData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS.pie[index % COLORS.pie.length]} />
