@@ -142,17 +142,23 @@ export type Database = {
       sectors: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
+          is_active: boolean
           name: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
+          is_active?: boolean
           name: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
+          is_active?: boolean
           name?: string
         }
         Relationships: []

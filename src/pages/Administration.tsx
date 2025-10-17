@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
 import { ArrowLeft, Plus, Pencil, Trash2, UserPlus } from 'lucide-react';
 
 const Administration = () => {
@@ -24,6 +25,8 @@ const Administration = () => {
   const [loading, setLoading] = useState(true);
   const [newSector, setNewSector] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSector, setEditingSector] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!profile) {
@@ -76,7 +79,11 @@ const Administration = () => {
     if (!newSector.trim()) return;
 
     try {
-      const { error } = await supabase.from('sectors').insert([{ name: newSector }]);
+      const { error } = await supabase.from('sectors').insert([{ 
+        name: newSector,
+        created_by: profile?.id,
+        is_active: true 
+      }]);
 
       if (error) throw error;
 
@@ -87,6 +94,61 @@ const Administration = () => {
 
       setNewSector('');
       setDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateSector = async () => {
+    if (!editingSector || !editingSector.name.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('sectors')
+        .update({ 
+          name: editingSector.name,
+          is_active: editingSector.is_active
+        })
+        .eq('id', editingSector.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Setor atualizado',
+        description: `Setor foi atualizado com sucesso`,
+      });
+
+      setEditingSector(null);
+      setEditDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleToggleSectorStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('sectors')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: currentStatus ? 'Setor desativado' : 'Setor ativado',
+        description: currentStatus ? 'O setor não aparecerá mais nas novas O.S.' : 'O setor voltará a aparecer nas novas O.S.',
+      });
+
       fetchData();
     } catch (error: any) {
       toast({
@@ -303,6 +365,35 @@ const Administration = () => {
                             Criar Setor
                           </Button>
                         </div>
+                       </DialogContent>
+                    </Dialog>
+                    <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Editar Setor</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="editSectorName">Nome do Setor</Label>
+                            <Input
+                              id="editSectorName"
+                              value={editingSector?.name || ''}
+                              onChange={(e) => setEditingSector({ ...editingSector, name: e.target.value })}
+                              placeholder="Ex: Ala Norte"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="editSectorActive"
+                              checked={editingSector?.is_active || false}
+                              onCheckedChange={(checked) => setEditingSector({ ...editingSector, is_active: checked })}
+                            />
+                            <Label htmlFor="editSectorActive">Setor ativo</Label>
+                          </div>
+                          <Button onClick={handleUpdateSector} className="w-full">
+                            Salvar Alterações
+                          </Button>
+                        </div>
                       </DialogContent>
                     </Dialog>
                   </div>
@@ -312,6 +403,7 @@ const Administration = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -320,13 +412,37 @@ const Administration = () => {
                         <TableRow key={sector.id}>
                           <TableCell className="font-medium">{sector.name}</TableCell>
                           <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteSector(sector.id, sector.name)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <Badge variant={sector.is_active ? 'default' : 'secondary'}>
+                              {sector.is_active ? 'Ativo' : 'Inativo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingSector(sector);
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleSectorStatus(sector.id, sector.is_active)}
+                              >
+                                {sector.is_active ? '🔴' : '🟢'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteSector(sector.id, sector.name)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

@@ -36,6 +36,8 @@ const NewOS = () => {
     maintenanceType: 'corretiva' as 'corretiva' | 'preventiva' | 'instalacao',
     photoUrl: '',
   });
+  const [showNewSectorField, setShowNewSectorField] = useState(false);
+  const [newSectorName, setNewSectorName] = useState('');
 
   useEffect(() => {
     if (!profile) {
@@ -49,12 +51,59 @@ const NewOS = () => {
     const { data, error } = await supabase
       .from('sectors')
       .select('*')
+      .eq('is_active', true)
       .order('name');
     
     if (error) {
       console.error('Error fetching sectors:', error);
     } else {
       setSectors(data || []);
+    }
+  };
+
+  const handleSectorChange = (value: string) => {
+    if (value === 'outro') {
+      setShowNewSectorField(true);
+      setFormData({ ...formData, sectorId: '' });
+    } else {
+      setShowNewSectorField(false);
+      setNewSectorName('');
+      setFormData({ ...formData, sectorId: value });
+    }
+  };
+
+  const createNewSector = async (): Promise<string | null> => {
+    if (!newSectorName.trim()) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('sectors')
+        .insert([{
+          name: newSectorName.trim(),
+          created_by: profile?.id,
+          is_active: true
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: 'Setor criado',
+        description: `Setor "${newSectorName}" foi criado com sucesso`,
+      });
+
+      // Atualizar lista de setores
+      await fetchSectors();
+      
+      return data.id;
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao criar setor',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return null;
     }
   };
 
@@ -116,7 +165,8 @@ const NewOS = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.category || !formData.sectorId || !formData.equipment || !formData.description || !formData.priority) {
+    // Validar campos obrigatórios
+    if (!formData.category || !formData.equipment || !formData.description || !formData.priority) {
       toast({
         title: 'Campos obrigatórios',
         description: 'Por favor, preencha todos os campos obrigatórios',
@@ -125,9 +175,39 @@ const NewOS = () => {
       return;
     }
 
+    // Validar setor
+    if (!formData.sectorId && !showNewSectorField) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, selecione um setor',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (showNewSectorField && !newSectorName.trim()) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, informe o nome do novo setor',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      // Se for um novo setor, criar primeiro
+      let sectorId = formData.sectorId;
+      if (showNewSectorField) {
+        const newSectorId = await createNewSector();
+        if (!newSectorId) {
+          setIsLoading(false);
+          return;
+        }
+        sectorId = newSectorId;
+      }
+
       let photoUrl = null;
       
       if (selectedFile) {
@@ -142,7 +222,7 @@ const NewOS = () => {
         .insert([
           {
             category: formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros',
-            sector_id: formData.sectorId,
+            sector_id: sectorId,
             equipment: formData.equipment,
             description: formData.description,
             priority: formData.priority,
@@ -220,10 +300,18 @@ const NewOS = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sector">Local / Setor *</Label>
-                <Select value={formData.sectorId} onValueChange={(value) => setFormData({ ...formData, sectorId: value })}>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="sector">Setor de Origem *</Label>
+                  <span className="text-xs text-muted-foreground">
+                    🏥 Escolha o setor onde ocorreu a necessidade
+                  </span>
+                </div>
+                <Select 
+                  value={showNewSectorField ? 'outro' : formData.sectorId} 
+                  onValueChange={handleSectorChange}
+                >
                   <SelectTrigger id="sector">
-                    <SelectValue placeholder="Selecione o setor" />
+                    <SelectValue placeholder="Selecione o setor ou cadastre um novo" />
                   </SelectTrigger>
                   <SelectContent>
                     {sectors.map((sector) => (
@@ -231,8 +319,26 @@ const NewOS = () => {
                         {sector.name}
                       </SelectItem>
                     ))}
+                    <SelectItem value="outro">Outro (especificar)</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                {showNewSectorField && (
+                  <div className="space-y-2 animate-fade-in">
+                    <Label htmlFor="newSector">Nome do novo setor *</Label>
+                    <Input
+                      id="newSector"
+                      placeholder="Digite o nome completo do setor (ex: Ala São José, Almoxarifado, etc.)"
+                      value={newSectorName}
+                      onChange={(e) => setNewSectorName(e.target.value)}
+                      className="border-primary/50"
+                      required={showNewSectorField}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Este setor será criado e estará disponível para futuras O.S.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
