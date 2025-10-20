@@ -17,18 +17,26 @@ interface Sector {
   name: string;
 }
 
+interface Department {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 const NewOS = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   
   const [formData, setFormData] = useState({
     category: '',
     sectorId: '',
+    responsibleDepartmentId: '',
     equipment: '',
     description: '',
     priority: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
@@ -44,6 +52,7 @@ const NewOS = () => {
       navigate('/auth');
     } else {
       fetchSectors();
+      fetchDepartments();
     }
   }, [profile, navigate]);
 
@@ -59,6 +68,35 @@ const NewOS = () => {
     } else {
       setSectors(data || []);
     }
+  };
+
+  const fetchDepartments = async () => {
+    const { data, error } = await supabase
+      .from('service_departments')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching departments:', error);
+    } else {
+      setDepartments(data || []);
+    }
+  };
+
+  const getSuggestedDepartment = (category: string): string => {
+    const suggestions: Record<string, string> = {
+      'equipamento_medico': 'Engenharia Clínica',
+      'eletrica': 'Manutenção',
+      'hidraulica': 'Manutenção',
+    };
+    
+    const suggestedName = suggestions[category];
+    if (suggestedName) {
+      const dept = departments.find(d => d.name === suggestedName);
+      return dept?.id || '';
+    }
+    return '';
   };
 
   const handleSectorChange = (value: string) => {
@@ -175,6 +213,16 @@ const NewOS = () => {
       return;
     }
 
+    // Validar setor responsável para Coordenação/Admin
+    if ((profile?.role === 'coordenacao') && !formData.responsibleDepartmentId) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, selecione o setor responsável',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Validar setor
     if (!formData.sectorId && !showNewSectorField) {
       toast({
@@ -223,6 +271,7 @@ const NewOS = () => {
           {
             category: formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros',
             sector_id: sectorId,
+            responsible_department_id: formData.responsibleDepartmentId || null,
             equipment: formData.equipment,
             description: formData.description,
             priority: formData.priority,
@@ -286,7 +335,17 @@ const NewOS = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="category">Categoria *</Label>
-                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(value) => {
+                    const suggestedDept = getSuggestedDepartment(value);
+                    setFormData({ 
+                      ...formData, 
+                      category: value,
+                      responsibleDepartmentId: suggestedDept || formData.responsibleDepartmentId
+                    });
+                  }}
+                >
                   <SelectTrigger id="category">
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
@@ -339,6 +398,38 @@ const NewOS = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="responsibleDepartment">Setor Responsável {profile?.role === 'coordenacao' ? '*' : ''}</Label>
+                  <span className="text-xs text-muted-foreground">
+                    🏢 Quem irá atender este chamado
+                  </span>
+                </div>
+                <Select 
+                  value={formData.responsibleDepartmentId} 
+                  onValueChange={(value) => setFormData({ ...formData, responsibleDepartmentId: value })}
+                >
+                  <SelectTrigger id="responsibleDepartment">
+                    <SelectValue placeholder="Selecione o setor que atenderá a solicitação" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                        {formData.category && getSuggestedDepartment(formData.category) === dept.id && (
+                          <span className="ml-2 text-xs text-primary">(Sugerido)</span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {profile?.role === 'coordenacao' 
+                    ? 'Obrigatório definir o setor responsável'
+                    : 'Pode ser ajustado pela Coordenação'}
+                </p>
               </div>
 
               <div className="space-y-2">

@@ -23,8 +23,15 @@ interface ServiceOrderDetail {
   updated_at: string;
   completed_at: string | null;
   photo_url: string | null;
+  responsible_department_id: string | null;
   sectors: { name: string };
   profiles: { full_name: string };
+  service_departments?: { name: string } | null;
+}
+
+interface Department {
+  id: string;
+  name: string;
 }
 
 interface Update {
@@ -43,6 +50,8 @@ const OSDetail = () => {
   const [updates, setUpdates] = useState<Update[]>([]);
   const [newComment, setNewComment] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  const [newDepartmentId, setNewDepartmentId] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,6 +60,7 @@ const OSDetail = () => {
     } else {
       fetchServiceOrder();
       fetchUpdates();
+      fetchDepartments();
     }
   }, [profile, id, navigate]);
 
@@ -58,13 +68,14 @@ const OSDetail = () => {
     try {
       const { data, error } = await supabase
         .from('service_orders')
-        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name)')
+        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name), service_departments(name)')
         .eq('id', id)
         .single();
 
       if (error) throw error;
       setServiceOrder(data);
       setNewStatus(data.status);
+      setNewDepartmentId(data.responsible_department_id || '');
     } catch (error) {
       console.error('Error fetching service order:', error);
       toast({
@@ -74,6 +85,21 @@ const OSDetail = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('service_departments')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setDepartments(data || []);
+    } catch (error) {
+      console.error('Error fetching departments:', error);
     }
   };
 
@@ -157,6 +183,43 @@ const OSDetail = () => {
     }
   };
 
+  const handleUpdateDepartment = async () => {
+    if (newDepartmentId === serviceOrder?.responsible_department_id) return;
+
+    try {
+      const oldDept = serviceOrder?.service_departments?.name || 'Não definido';
+      const newDept = departments.find(d => d.id === newDepartmentId)?.name || 'Não definido';
+
+      const { error } = await supabase
+        .from('service_orders')
+        .update({ responsible_department_id: newDepartmentId || null })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Registrar no histórico
+      await supabase.from('os_updates').insert({
+        service_order_id: id,
+        user_id: profile?.id,
+        comment: `Setor Responsável alterado de "${oldDept}" para "${newDept}"`,
+      });
+
+      toast({
+        title: 'Setor Responsável atualizado',
+        description: `Reatribuído para ${newDept}`,
+      });
+
+      fetchServiceOrder();
+      fetchUpdates();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       aberta: { label: 'Aberta', className: 'bg-red-500 text-white' },
@@ -228,8 +291,14 @@ const OSDetail = () => {
                 <p className="font-medium">{getCategoryLabel(serviceOrder.category)}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Setor</p>
+                <p className="text-sm text-muted-foreground">Setor de Origem</p>
                 <p className="font-medium">{serviceOrder.sectors.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Setor Responsável</p>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  {serviceOrder.service_departments?.name || 'Não definido'}
+                </Badge>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Equipamento</p>
@@ -334,6 +403,35 @@ const OSDetail = () => {
               </Select>
               <Button onClick={handleUpdateStatus} disabled={newStatus === serviceOrder.status} className="w-full">
                 {newStatus === 'concluida' ? 'Marcar como Concluída' : 'Atualizar Status'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {profile?.role === 'coordenacao' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Reatribuir Setor Responsável</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Select value={newDepartmentId} onValueChange={setNewDepartmentId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o setor responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={handleUpdateDepartment} 
+                disabled={newDepartmentId === serviceOrder.responsible_department_id} 
+                className="w-full"
+              >
+                Reatribuir Setor
               </Button>
             </CardContent>
           </Card>

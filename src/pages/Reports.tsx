@@ -29,6 +29,7 @@ const Reports = () => {
   });
   const [trendData, setTrendData] = useState<any[]>([]);
   const [sectorData, setSectorData] = useState<any[]>([]);
+  const [departmentData, setDepartmentData] = useState<any[]>([]);
   const [maintenanceTypeData, setMaintenanceTypeData] = useState<any[]>([]);
   const [priorityData, setPriorityData] = useState<any[]>([]);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'csv'>('pdf');
@@ -49,9 +50,10 @@ const Reports = () => {
     try {
       const { data: allOrders } = await supabase
         .from('service_orders')
-        .select('*, sectors(name)');
+        .select('*, sectors(name), service_departments(name)');
 
       const { data: sectors } = await supabase.from('sectors').select('*');
+      const { data: departments } = await supabase.from('service_departments').select('*');
 
       if (allOrders) {
         const totalOpen = allOrders.filter(os => os.status === 'aberta').length;
@@ -120,6 +122,13 @@ const Reports = () => {
         })) || [];
         setSectorData(sectorChartData);
 
+        // Dados por setor responsável
+        const departmentChartData = departments?.map(dept => ({
+          department: dept.name,
+          total: allOrders.filter(os => os.responsible_department_id === dept.id).length,
+        })) || [];
+        setDepartmentData(departmentChartData);
+
         // Dados por tipo de manutenção
         const maintenanceTypes = [
           { type: 'Corretiva', value: allOrders.filter(os => os.maintenance_type === 'corretiva').length },
@@ -182,7 +191,8 @@ const Reports = () => {
       // Cabeçalho do CSV
       const headers = [
         'Número OS',
-        'Setor',
+        'Setor Origem',
+        'Setor Responsável',
         'Equipamento',
         'Descrição',
         'Status',
@@ -194,9 +204,10 @@ const Reports = () => {
       ];
 
       // Mapear dados para CSV
-      const rows = orders.map(os => [
+      const rows = orders.map((os: any) => [
         os.os_number,
         os.sectors?.name || 'N/A',
+        os.service_departments?.name || 'Não definido',
         os.equipment,
         os.description.replace(/"/g, '""'), // Escapar aspas
         os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
@@ -249,7 +260,7 @@ const Reports = () => {
 
       const { data: orders } = await supabase
         .from('service_orders')
-        .select('*, sectors(name), profiles!requester_id(full_name)')
+        .select('*, sectors(name), service_departments(name), profiles!requester_id(full_name)')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
 
@@ -272,9 +283,10 @@ const Reports = () => {
       doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 34);
 
       // Tabela
-      const tableData = orders.map(os => [
+      const tableData = orders.map((os: any) => [
         os.os_number.toString(),
         os.sectors?.name || 'N/A',
+        os.service_departments?.name || 'Não definido',
         os.equipment,
         os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
         os.priority === 'critica' ? 'Crítica' : os.priority === 'alta' ? 'Alta' : os.priority === 'media' ? 'Média' : 'Baixa',
@@ -282,7 +294,7 @@ const Reports = () => {
       ]);
 
       (doc as any).autoTable({
-        head: [['Nº OS', 'Setor', 'Equipamento', 'Status', 'Prioridade', 'Data']],
+        head: [['Nº OS', 'Setor Origem', 'Responsável', 'Equipamento', 'Status', 'Prioridade', 'Data']],
         body: tableData,
         startY: 40,
         theme: 'grid',
@@ -509,11 +521,11 @@ const Reports = () => {
 
         {/* Grid de gráficos secundários */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Gráfico por Setor */}
+          {/* Gráfico por Setor de Origem */}
           <Card className="animate-fade-in" style={{ animationDelay: '0.7s' }}>
             <CardHeader>
-              <CardTitle>Distribuição por Setor</CardTitle>
-              <CardDescription>Quantidade de O.S. por setor</CardDescription>
+              <CardTitle>Distribuição por Setor de Origem</CardTitle>
+              <CardDescription>Quantidade de O.S. por setor de origem</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer
@@ -529,6 +541,32 @@ const Reports = () => {
                     <YAxis dataKey="sector" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Gráfico por Setor Responsável */}
+          <Card className="animate-fade-in" style={{ animationDelay: '0.75s' }}>
+            <CardHeader>
+              <CardTitle>O.S. por Setor Responsável</CardTitle>
+              <CardDescription>Distribuição de O.S. entre setores responsáveis</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  total: { label: 'Total', color: 'hsl(var(--chart-4))' },
+                }}
+                className="h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={departmentData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis dataKey="department" type="category" stroke="hsl(var(--muted-foreground))" fontSize={12} width={120} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="total" fill="hsl(var(--chart-4))" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>

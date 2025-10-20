@@ -18,8 +18,10 @@ interface ServiceOrder {
   equipment: string;
   created_at: string;
   photo_url: string | null;
+  responsible_department_id: string | null;
   sectors: { name: string };
   profiles: { full_name: string };
+  service_departments?: { name: string } | null;
 }
 
 const OSList = () => {
@@ -48,7 +50,7 @@ const OSList = () => {
     try {
       let query = supabase
         .from('service_orders')
-        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name), photo_url')
+        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name), photo_url, service_departments(name)')
         .order('created_at', { ascending: false });
 
       // Filtrar baseado no role
@@ -219,8 +221,14 @@ const OSList = () => {
                       </div>
                       <div className="grid gap-2 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Setor: </span>
+                          <span className="text-muted-foreground">Setor Origem: </span>
                           <span className="font-medium">{os.sectors.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Responsável: </span>
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            {os.service_departments?.name || 'Não definido'}
+                          </Badge>
                         </div>
                         <div>
                           <span className="text-muted-foreground">Categoria: </span>

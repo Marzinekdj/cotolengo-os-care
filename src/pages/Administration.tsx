@@ -22,11 +22,16 @@ const Administration = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [sectors, setSectors] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newSector, setNewSector] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSector, setEditingSector] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [newDepartment, setNewDepartment] = useState({ name: '', description: '' });
+  const [deptDialogOpen, setDeptDialogOpen] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<any>(null);
+  const [editDeptDialogOpen, setEditDeptDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!profile) {
@@ -46,7 +51,7 @@ const Administration = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [usersRes, sectorsRes] = await Promise.all([
+      const [usersRes, sectorsRes, deptsRes] = await Promise.all([
         supabase
           .from('profiles')
           .select(`
@@ -55,10 +60,12 @@ const Administration = () => {
           `)
           .order('full_name'),
         supabase.from('sectors').select('*').order('name'),
+        supabase.from('service_departments').select('*').order('name'),
       ]);
 
       if (usersRes.error) throw usersRes.error;
       if (sectorsRes.error) throw sectorsRes.error;
+      if (deptsRes.error) throw deptsRes.error;
 
       // Mapear os dados para extrair o role correto de user_roles
       const usersWithRoles = (usersRes.data || []).map((user: any) => ({
@@ -68,6 +75,7 @@ const Administration = () => {
 
       setUsers(usersWithRoles);
       setSectors(sectorsRes.data || []);
+      setDepartments(deptsRes.data || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {
@@ -170,6 +178,117 @@ const Administration = () => {
       toast({
         title: 'Setor excluído',
         description: `Setor "${name}" foi excluído`,
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddDepartment = async () => {
+    if (!newDepartment.name.trim()) return;
+
+    try {
+      const { error } = await supabase.from('service_departments').insert([{
+        name: newDepartment.name,
+        description: newDepartment.description || null,
+        created_by: profile?.id,
+        is_active: true,
+      }]);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Setor responsável criado',
+        description: `"${newDepartment.name}" foi criado com sucesso`,
+      });
+
+      setNewDepartment({ name: '', description: '' });
+      setDeptDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateDepartment = async () => {
+    if (!editingDepartment || !editingDepartment.name.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('service_departments')
+        .update({
+          name: editingDepartment.name,
+          description: editingDepartment.description || null,
+          is_active: editingDepartment.is_active,
+        })
+        .eq('id', editingDepartment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Setor responsável atualizado',
+        description: 'Atualizado com sucesso',
+      });
+
+      setEditingDepartment(null);
+      setEditDeptDialogOpen(false);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleToggleDepartmentStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('service_departments')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: currentStatus ? 'Setor desativado' : 'Setor ativado',
+        description: currentStatus
+          ? 'Não aparecerá mais em novas O.S.'
+          : 'Voltará a aparecer em novas O.S.',
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteDepartment = async (id: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir "${name}"?`)) return;
+
+    try {
+      const { error } = await supabase.from('service_departments').delete().eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Setor responsável excluído',
+        description: `"${name}" foi excluído`,
       });
 
       fetchData();
@@ -439,6 +558,139 @@ const Administration = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDeleteSector(sector.id, sector.name)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Setores Responsáveis</CardTitle>
+                    <Dialog open={deptDialogOpen} onOpenChange={setDeptDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          Novo Setor Responsável
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Criar Novo Setor Responsável</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="deptName">Nome</Label>
+                            <Input
+                              id="deptName"
+                              value={newDepartment.name}
+                              onChange={(e) => setNewDepartment({ ...newDepartment, name: e.target.value })}
+                              placeholder="Ex: Engenharia Clínica"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="deptDesc">Descrição (opcional)</Label>
+                            <Input
+                              id="deptDesc"
+                              value={newDepartment.description}
+                              onChange={(e) => setNewDepartment({ ...newDepartment, description: e.target.value })}
+                              placeholder="Ex: Responsável por equipamentos médicos"
+                            />
+                          </div>
+                          <Button onClick={handleAddDepartment} className="w-full">
+                            Criar Setor Responsável
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog open={editDeptDialogOpen} onOpenChange={setEditDeptDialogOpen}>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Editar Setor Responsável</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="editDeptName">Nome</Label>
+                            <Input
+                              id="editDeptName"
+                              value={editingDepartment?.name || ''}
+                              onChange={(e) => setEditingDepartment({ ...editingDepartment, name: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="editDeptDesc">Descrição</Label>
+                            <Input
+                              id="editDeptDesc"
+                              value={editingDepartment?.description || ''}
+                              onChange={(e) => setEditingDepartment({ ...editingDepartment, description: e.target.value })}
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="editDeptActive"
+                              checked={editingDepartment?.is_active || false}
+                              onCheckedChange={(checked) => setEditingDepartment({ ...editingDepartment, is_active: checked })}
+                            />
+                            <Label htmlFor="editDeptActive">Ativo</Label>
+                          </div>
+                          <Button onClick={handleUpdateDepartment} className="w-full">
+                            Salvar Alterações
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {departments.map((dept) => (
+                        <TableRow key={dept.id}>
+                          <TableCell className="font-medium">{dept.name}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{dept.description || '—'}</TableCell>
+                          <TableCell>
+                            <Badge variant={dept.is_active ? 'default' : 'secondary'}>
+                              {dept.is_active ? 'Ativo' : 'Inativo'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingDepartment(dept);
+                                  setEditDeptDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleDepartmentStatus(dept.id, dept.is_active)}
+                              >
+                                {dept.is_active ? '🔴' : '🟢'}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteDepartment(dept.id, dept.name)}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>

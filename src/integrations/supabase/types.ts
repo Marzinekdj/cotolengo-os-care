@@ -163,6 +163,33 @@ export type Database = {
         }
         Relationships: []
       }
+      service_departments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       service_orders: {
         Row: {
           category: Database["public"]["Enums"]["os_category"]
@@ -178,6 +205,7 @@ export type Database = {
           photo_url: string | null
           priority: Database["public"]["Enums"]["os_priority"]
           requester_id: string
+          responsible_department_id: string | null
           sector_id: string
           sla_target_hours: number | null
           status: Database["public"]["Enums"]["os_status"]
@@ -198,6 +226,7 @@ export type Database = {
           photo_url?: string | null
           priority?: Database["public"]["Enums"]["os_priority"]
           requester_id: string
+          responsible_department_id?: string | null
           sector_id: string
           sla_target_hours?: number | null
           status?: Database["public"]["Enums"]["os_status"]
@@ -218,6 +247,7 @@ export type Database = {
           photo_url?: string | null
           priority?: Database["public"]["Enums"]["os_priority"]
           requester_id?: string
+          responsible_department_id?: string | null
           sector_id?: string
           sla_target_hours?: number | null
           status?: Database["public"]["Enums"]["os_status"]
@@ -230,6 +260,13 @@ export type Database = {
             columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_orders_responsible_department_id_fkey"
+            columns: ["responsible_department_id"]
+            isOneToOne: false
+            referencedRelation: "service_departments"
             referencedColumns: ["id"]
           },
           {
