@@ -39,7 +39,7 @@ const NewOS = () => {
     responsibleDepartmentId: '',
     equipment: '',
     description: '',
-    priority: 'media' as 'baixa' | 'media' | 'alta' | 'critica',
+    priority: 'urgente' as 'nao_urgente' | 'urgente' | 'emergencial',
     slaTargetHours: 24,
     maintenanceType: 'corretiva' as 'corretiva' | 'preventiva' | 'instalacao',
     photoUrl: '',
@@ -287,10 +287,9 @@ const NewOS = () => {
       if (error) throw error;
 
       const priorityLabels = {
-        critica: 'Crítica',
-        alta: 'Alta',
-        media: 'Média',
-        baixa: 'Baixa',
+        emergencial: 'Emergencial',
+        urgente: 'Urgente',
+        nao_urgente: 'Não Urgente',
       };
       
       toast({
@@ -456,43 +455,40 @@ const NewOS = () => {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="priority">Prioridade *</Label>
-                  <p className="text-xs text-muted-foreground">Usar Crítica apenas quando há impacto direto em segurança/assistência</p>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="priority">Nível de Solicitação *</Label>
+                  <p className="text-xs text-muted-foreground">Defina a urgência com que o problema precisa ser resolvido</p>
                 </div>
                 <Select 
                   value={formData.priority} 
-                  onValueChange={(value: 'baixa' | 'media' | 'alta' | 'critica') => {
-                    const newSla = value === 'critica' ? 4 : value === 'alta' ? 8 : value === 'media' ? 24 : 72;
+                  onValueChange={(value: 'nao_urgente' | 'urgente' | 'emergencial') => {
+                    const newSla = value === 'emergencial' ? 4 : value === 'urgente' ? 24 : 72;
                     setFormData({ ...formData, priority: value, slaTargetHours: newSla });
                   }}
                 >
                   <SelectTrigger id="priority">
-                    <SelectValue placeholder="Selecione a prioridade" />
+                    <SelectValue placeholder="Selecione o nível de urgência" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="baixa">
+                    <SelectItem value="nao_urgente">
                       <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-                        Baixa
+                        <span className="h-2 w-2 rounded-full" style={{backgroundColor: '#00A08A'}}></span>
+                        Não Urgente
+                        <span className="text-xs text-muted-foreground ml-2">- Pode aguardar manutenção programada</span>
                       </span>
                     </SelectItem>
-                    <SelectItem value="media">
+                    <SelectItem value="urgente">
                       <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
-                        Média
+                        <span className="h-2 w-2 rounded-full" style={{backgroundColor: '#FFC107'}}></span>
+                        Urgente
+                        <span className="text-xs text-muted-foreground ml-2">- Afeta a rotina, sem risco imediato</span>
                       </span>
                     </SelectItem>
-                    <SelectItem value="alta">
+                    <SelectItem value="emergencial">
                       <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-orange-500"></span>
-                        Alta
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="critica">
-                      <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full bg-red-500"></span>
-                        Crítica
+                        <span className="h-2 w-2 rounded-full" style={{backgroundColor: '#E53935'}}></span>
+                        Emergencial
+                        <span className="text-xs text-muted-foreground ml-2">- Risco à segurança ou funcionamento crítico</span>
                       </span>
                     </SelectItem>
                   </SelectContent>

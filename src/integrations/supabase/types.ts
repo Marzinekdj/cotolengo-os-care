@@ -332,7 +332,7 @@ export type Database = {
       app_role: "solicitante" | "tecnico" | "coordenacao"
       maintenance_type: "corretiva" | "preventiva" | "instalacao"
       os_category: "eletrica" | "hidraulica" | "equipamento_medico" | "outros"
-      os_priority: "baixa" | "media" | "alta" | "critica"
+      os_priority: "nao_urgente" | "urgente" | "emergencial"
       os_status: "aberta" | "em_andamento" | "concluida" | "cancelada"
     }
     CompositeTypes: {
@@ -464,7 +464,7 @@ export const Constants = {
       app_role: ["solicitante", "tecnico", "coordenacao"],
       maintenance_type: ["corretiva", "preventiva", "instalacao"],
       os_category: ["eletrica", "hidraulica", "equipamento_medico", "outros"],
-      os_priority: ["baixa", "media", "alta", "critica"],
+      os_priority: ["nao_urgente", "urgente", "emergencial"],
       os_status: ["aberta", "em_andamento", "concluida", "cancelada"],
     },
   },

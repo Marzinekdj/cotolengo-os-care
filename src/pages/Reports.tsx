@@ -59,7 +59,7 @@ const Reports = () => {
         const totalOpen = allOrders.filter(os => os.status === 'aberta').length;
         const totalInProgress = allOrders.filter(os => os.status === 'em_andamento').length;
         const totalCompleted = allOrders.filter(os => os.status === 'concluida').length;
-        const totalUrgent = allOrders.filter(os => os.priority === 'critica').length;
+        const totalUrgent = allOrders.filter(os => os.priority === 'emergencial').length;
 
         // Concluídas nos últimos 7 dias
         const sevenDaysAgo = subDays(new Date(), 7);
@@ -137,28 +137,25 @@ const Reports = () => {
         ];
         setMaintenanceTypeData(maintenanceTypes);
 
-        // Dados por prioridade
+        // Dados por nível de solicitação (prioridade)
         const priorityChartData = [
           {
             status: 'Abertas',
-            critica: allOrders.filter(os => os.status === 'aberta' && os.priority === 'critica').length,
-            alta: allOrders.filter(os => os.status === 'aberta' && os.priority === 'alta').length,
-            media: allOrders.filter(os => os.status === 'aberta' && os.priority === 'media').length,
-            baixa: allOrders.filter(os => os.status === 'aberta' && os.priority === 'baixa').length,
+            emergencial: allOrders.filter(os => os.status === 'aberta' && os.priority === 'emergencial').length,
+            urgente: allOrders.filter(os => os.status === 'aberta' && os.priority === 'urgente').length,
+            nao_urgente: allOrders.filter(os => os.status === 'aberta' && os.priority === 'nao_urgente').length,
           },
           {
             status: 'Em Andamento',
-            critica: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'critica').length,
-            alta: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'alta').length,
-            media: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'media').length,
-            baixa: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'baixa').length,
+            emergencial: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'emergencial').length,
+            urgente: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'urgente').length,
+            nao_urgente: allOrders.filter(os => os.status === 'em_andamento' && os.priority === 'nao_urgente').length,
           },
           {
             status: 'Concluídas',
-            critica: allOrders.filter(os => os.status === 'concluida' && os.priority === 'critica').length,
-            alta: allOrders.filter(os => os.status === 'concluida' && os.priority === 'alta').length,
-            media: allOrders.filter(os => os.status === 'concluida' && os.priority === 'media').length,
-            baixa: allOrders.filter(os => os.status === 'concluida' && os.priority === 'baixa').length,
+            emergencial: allOrders.filter(os => os.status === 'concluida' && os.priority === 'emergencial').length,
+            urgente: allOrders.filter(os => os.status === 'concluida' && os.priority === 'urgente').length,
+            nao_urgente: allOrders.filter(os => os.status === 'concluida' && os.priority === 'nao_urgente').length,
           },
         ];
         setPriorityData(priorityChartData);
@@ -211,7 +208,7 @@ const Reports = () => {
         os.equipment,
         os.description.replace(/"/g, '""'), // Escapar aspas
         os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
-        os.priority === 'critica' ? 'Crítica' : os.priority === 'alta' ? 'Alta' : os.priority === 'media' ? 'Média' : 'Baixa',
+        os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
         os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
         os.profiles?.full_name || 'N/A',
         format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
@@ -289,12 +286,12 @@ const Reports = () => {
         os.service_departments?.name || 'Não definido',
         os.equipment,
         os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
-        os.priority === 'critica' ? 'Crítica' : os.priority === 'alta' ? 'Alta' : os.priority === 'media' ? 'Média' : 'Baixa',
+        os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
         format(new Date(os.created_at), 'dd/MM/yyyy', { locale: ptBR }),
       ]);
 
       (doc as any).autoTable({
-        head: [['Nº OS', 'Setor Origem', 'Responsável', 'Equipamento', 'Status', 'Prioridade', 'Data']],
+        head: [['Nº OS', 'Setor Origem', 'Responsável', 'Equipamento', 'Status', 'Nível de Solicitação', 'Data']],
         body: tableData,
         startY: 40,
         theme: 'grid',
@@ -333,10 +330,9 @@ const Reports = () => {
   const COLORS = {
     pie: ['hsl(var(--destructive))', 'hsl(var(--chart-2))', 'hsl(var(--primary))'],
     priority: {
-      critica: 'hsl(var(--destructive))',
-      alta: 'hsl(var(--chart-1))',
-      media: 'hsl(var(--chart-3))',
-      baixa: 'hsl(var(--chart-4))',
+      emergencial: '#E53935',
+      urgente: '#FFC107',
+      nao_urgente: '#00A08A',
     }
   };
 
@@ -450,12 +446,12 @@ const Reports = () => {
           <Card className="border-l-4 border-l-destructive animate-fade-in" style={{ animationDelay: '0.3s' }}>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                🔴 O.S. Urgentes
+                ❗ O.S. Emergenciais
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{stats.totalUrgent}</div>
-              <p className="text-xs text-muted-foreground mt-1">Alta prioridade</p>
+              <p className="text-xs text-muted-foreground mt-1">Necessitam atenção imediata</p>
             </CardContent>
           </Card>
 
@@ -610,19 +606,18 @@ const Reports = () => {
           </Card>
         </div>
 
-        {/* Gráfico de Prioridades */}
+        {/* Gráfico de Níveis de Solicitação */}
         <Card className="animate-fade-in" style={{ animationDelay: '0.9s' }}>
           <CardHeader>
-            <CardTitle>Chamados por Prioridade</CardTitle>
-            <CardDescription>Distribuição de prioridades por status</CardDescription>
+            <CardTitle>Chamados por Nível de Solicitação</CardTitle>
+            <CardDescription>Distribuição de níveis de urgência por status</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer
               config={{
-                critica: { label: 'Crítica', color: 'hsl(var(--destructive))' },
-                alta: { label: 'Alta', color: 'hsl(var(--chart-1))' },
-                media: { label: 'Média', color: 'hsl(var(--chart-3))' },
-                baixa: { label: 'Baixa', color: 'hsl(var(--chart-4))' },
+                emergencial: { label: '❗ Emergencial', color: '#E53935' },
+                urgente: { label: '⚠️ Urgente', color: '#FFC107' },
+                nao_urgente: { label: '🟢 Não Urgente', color: '#00A08A' },
               }}
               className="h-[300px]"
             >
@@ -633,10 +628,9 @@ const Reports = () => {
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="critica" stackId="a" fill={COLORS.priority.critica} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="alta" stackId="a" fill={COLORS.priority.alta} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="media" stackId="a" fill={COLORS.priority.media} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="baixa" stackId="a" fill={COLORS.priority.baixa} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="emergencial" stackId="a" fill={COLORS.priority.emergencial} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="urgente" stackId="a" fill={COLORS.priority.urgente} radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="nao_urgente" stackId="a" fill={COLORS.priority.nao_urgente} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>

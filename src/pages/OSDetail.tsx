@@ -233,13 +233,20 @@ const OSDetail = () => {
 
   const getPriorityBadge = (priority: string) => {
     const priorityConfig = {
-      critica: { label: 'Crítica', className: 'bg-red-500 text-white' },
-      alta: { label: 'Alta', className: 'bg-orange-500 text-white' },
-      media: { label: 'Média', className: 'bg-yellow-500 text-white' },
-      baixa: { label: 'Baixa', className: 'bg-blue-500 text-white' },
+      emergencial: { label: '❗ Emergencial', color: '#E53935' },
+      urgente: { label: '⚠️ Urgente', color: '#FFC107' },
+      nao_urgente: { label: '🟢 Não Urgente', color: '#00A08A' },
     };
     const config = priorityConfig[priority as keyof typeof priorityConfig];
-    return <Badge className={config?.className}>{config?.label}</Badge>;
+    return (
+      <Badge 
+        className="text-white" 
+        style={{backgroundColor: config?.color}}
+        title={`Nível de Solicitação: ${config?.label}`}
+      >
+        {config?.label}
+      </Badge>
+    );
   };
 
   const getCategoryLabel = (category: string) => {

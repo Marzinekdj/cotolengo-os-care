@@ -88,16 +88,16 @@ const OSList = () => {
       );
     }
 
-    // Ordenar por prioridade
+    // Ordenar por prioridade (Emergencial → Urgente → Não Urgente)
     if (prioritySort === 'high-to-low') {
-      const priorityOrder = { critica: 0, alta: 1, media: 2, baixa: 3 };
+      const priorityOrder = { emergencial: 0, urgente: 1, nao_urgente: 2 };
       filtered.sort((a, b) => {
         const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 999;
         const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 999;
         return aPriority - bPriority;
       });
     } else if (prioritySort === 'low-to-high') {
-      const priorityOrder = { baixa: 0, media: 1, alta: 2, critica: 3 };
+      const priorityOrder = { nao_urgente: 0, urgente: 1, emergencial: 2 };
       filtered.sort((a, b) => {
         const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 999;
         const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 999;
@@ -121,13 +121,20 @@ const OSList = () => {
 
   const getPriorityBadge = (priority: string) => {
     const priorityConfig = {
-      critica: { label: 'Crítica', className: 'bg-red-500 text-white' },
-      alta: { label: 'Alta', className: 'bg-orange-500 text-white' },
-      media: { label: 'Média', className: 'bg-yellow-500 text-white' },
-      baixa: { label: 'Baixa', className: 'bg-blue-500 text-white' },
+      emergencial: { label: '❗ Emergencial', color: '#E53935' },
+      urgente: { label: '⚠️ Urgente', color: '#FFC107' },
+      nao_urgente: { label: '🟢 Não Urgente', color: '#00A08A' },
     };
     const config = priorityConfig[priority as keyof typeof priorityConfig];
-    return <Badge className={config?.className}>{config?.label}</Badge>;
+    return (
+      <Badge 
+        className="text-white" 
+        style={{backgroundColor: config?.color}}
+        title={`Nível de Solicitação: ${config?.label}`}
+      >
+        {config?.label}
+      </Badge>
+    );
   };
 
   const getCategoryLabel = (category: string) => {
@@ -182,8 +189,8 @@ const OSList = () => {
             </SelectTrigger>
             <SelectContent className="bg-card z-50">
               <SelectItem value="none">Sem ordenação</SelectItem>
-              <SelectItem value="high-to-low">Crítica → Baixa</SelectItem>
-              <SelectItem value="low-to-high">Baixa → Crítica</SelectItem>
+              <SelectItem value="high-to-low">Emergencial → Não Urgente</SelectItem>
+              <SelectItem value="low-to-high">Não Urgente → Emergencial</SelectItem>
             </SelectContent>
           </Select>
         </div>

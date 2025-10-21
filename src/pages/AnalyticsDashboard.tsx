@@ -149,10 +149,9 @@ const AnalyticsDashboard = () => {
   };
 
   const priorityLabels: Record<string, string> = {
-    critica: 'Crítica',
-    alta: 'Alta',
-    media: 'Média',
-    baixa: 'Baixa',
+    emergencial: '❗ Emergencial',
+    urgente: '⚠️ Urgente',
+    nao_urgente: '🟢 Não Urgente',
   };
 
   const typeLabels: Record<string, string> = {
@@ -222,14 +221,13 @@ const AnalyticsDashboard = () => {
 
               <Select value={filter.priority} onValueChange={(v) => setFilter({ ...filter, priority: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Prioridade" />
+                  <SelectValue placeholder="Nível de Solicitação" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="critica">Crítica</SelectItem>
-                  <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="media">Média</SelectItem>
-                  <SelectItem value="baixa">Baixa</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="emergencial">❗ Emergencial</SelectItem>
+                  <SelectItem value="urgente">⚠️ Urgente</SelectItem>
+                  <SelectItem value="nao_urgente">🟢 Não Urgente</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -369,10 +367,10 @@ const AnalyticsDashboard = () => {
           </Card>
         </div>
 
-        {/* Fila por prioridade */}
+        {/* Fila por Nível de Solicitação */}
         <Card>
           <CardHeader>
-            <CardTitle>Fila por Prioridade</CardTitle>
+            <CardTitle>Fila por Nível de Solicitação</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
@@ -380,17 +378,21 @@ const AnalyticsDashboard = () => {
                 <Badge
                   key={p.priority}
                   variant="outline"
-                  className={`text-lg px-4 py-2 ${
-                    p.priority === 'critica'
-                      ? 'bg-red-100 text-red-800 border-red-300'
-                      : p.priority === 'alta'
-                      ? 'bg-orange-100 text-orange-800 border-orange-300'
-                      : p.priority === 'media'
-                      ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                      : 'bg-blue-100 text-blue-800 border-blue-300'
-                  }`}
+                  className="text-lg px-4 py-2 text-white"
+                  style={{
+                    backgroundColor: p.priority === 'emergencial' 
+                      ? '#E53935' 
+                      : p.priority === 'urgente' 
+                      ? '#FFC107' 
+                      : '#00A08A',
+                    borderColor: p.priority === 'emergencial' 
+                      ? '#C62828' 
+                      : p.priority === 'urgente' 
+                      ? '#FFA000' 
+                      : '#00897B'
+                  }}
                 >
-                  {priorityLabels[p.priority]}: {p.count}
+                  {priorityLabels[p.priority] || p.priority}: {p.count}
                 </Badge>
               ))}
             </div>
