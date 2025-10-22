@@ -23,18 +23,31 @@ const Reports = () => {
     totalInProgress: 0,
     totalCompleted: 0,
     totalUrgent: 0,
+    totalEmergency: 0,
     avgResolutionTime: 0,
     completedLast7Days: 0,
     efficiencyPercentage: 0,
   });
   const [trendData, setTrendData] = useState<any[]>([]);
+  const [openCloseTrendData, setOpenCloseTrendData] = useState<any[]>([]);
   const [sectorData, setSectorData] = useState<any[]>([]);
   const [departmentData, setDepartmentData] = useState<any[]>([]);
   const [maintenanceTypeData, setMaintenanceTypeData] = useState<any[]>([]);
   const [priorityData, setPriorityData] = useState<any[]>([]);
+  const [prioritySimpleData, setPrioritySimpleData] = useState<any[]>([]);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'csv'>('pdf');
   const [exportPeriod, setExportPeriod] = useState('30');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [sectors, setSectors] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [filters, setFilters] = useState({
+    startDate: '',
+    endDate: '',
+    sectorOrigin: [] as string[],
+    responsibleDept: [] as string[],
+    priority: [] as string[],
+    status: 'all',
+  });
 
   useEffect(() => {
     if (!profile) {
@@ -48,18 +61,43 @@ const Reports = () => {
 
   const fetchStats = async () => {
     try {
-      const { data: allOrders } = await supabase
-        .from('service_orders')
-        .select('*, sectors(name), service_departments(name)');
+      // Fetch sectors and departments
+      const { data: sectorsData } = await supabase.from('sectors').select('*');
+      const { data: departmentsData } = await supabase.from('service_departments').select('*');
+      
+      setSectors(sectorsData || []);
+      setDepartments(departmentsData || []);
 
-      const { data: sectors } = await supabase.from('sectors').select('*');
-      const { data: departments } = await supabase.from('service_departments').select('*');
+      // Build query with filters
+      let query = supabase.from('service_orders').select('*, sectors(name), service_departments(name)');
+
+      if (filters.startDate) {
+        query = query.gte('created_at', new Date(filters.startDate).toISOString());
+      }
+      if (filters.endDate) {
+        query = query.lte('created_at', new Date(filters.endDate).toISOString());
+      }
+      if (filters.sectorOrigin.length > 0) {
+        query = query.in('sector_id', filters.sectorOrigin);
+      }
+      if (filters.responsibleDept.length > 0) {
+        query = query.in('responsible_department_id', filters.responsibleDept);
+      }
+      if (filters.priority.length > 0) {
+        query = query.in('priority', filters.priority as any);
+      }
+      if (filters.status !== 'all') {
+        query = query.eq('status', filters.status as any);
+      }
+
+      const { data: allOrders } = await query;
 
       if (allOrders) {
         const totalOpen = allOrders.filter(os => os.status === 'aberta').length;
         const totalInProgress = allOrders.filter(os => os.status === 'em_andamento').length;
         const totalCompleted = allOrders.filter(os => os.status === 'concluida').length;
-        const totalUrgent = allOrders.filter(os => os.priority === 'emergencial').length;
+        const totalUrgent = allOrders.filter(os => os.priority === 'urgente').length;
+        const totalEmergency = allOrders.filter(os => os.priority === 'emergencial').length;
 
         // Concluídas nos últimos 7 dias
         const sevenDaysAgo = subDays(new Date(), 7);
@@ -87,6 +125,7 @@ const Reports = () => {
           totalInProgress,
           totalCompleted,
           totalUrgent,
+          totalEmergency,
           avgResolutionTime: avgTime,
           completedLast7Days: completedLast7,
           efficiencyPercentage: efficiencyPerc,
@@ -115,18 +154,33 @@ const Reports = () => {
         });
         setTrendData(trendChartData);
 
+        // Tendência de Abertura vs Conclusão
+        const openCloseTrend = last30Days.map(day => {
+          const dayStr = format(day, 'yyyy-MM-dd');
+          return {
+            date: format(day, 'dd/MM', { locale: ptBR }),
+            abertas: allOrders.filter(
+              os => format(new Date(os.created_at), 'yyyy-MM-dd') === dayStr
+            ).length,
+            concluidas: allOrders.filter(
+              os => os.completed_at && format(new Date(os.completed_at), 'yyyy-MM-dd') === dayStr
+            ).length,
+          };
+        });
+        setOpenCloseTrendData(openCloseTrend);
+
         // Dados por setor
-        const sectorChartData = sectors?.map(sector => ({
+        const sectorChartData = sectorsData?.map(sector => ({
           sector: sector.name,
           total: allOrders.filter(os => os.sector_id === sector.id).length,
-        })) || [];
+        })).filter(s => s.total > 0) || [];
         setSectorData(sectorChartData);
 
         // Dados por setor responsável
-        const departmentChartData = departments?.map(dept => ({
+        const departmentChartData = departmentsData?.map(dept => ({
           department: dept.name,
           total: allOrders.filter(os => os.responsible_department_id === dept.id).length,
-        })) || [];
+        })).filter(d => d.total > 0) || [];
         setDepartmentData(departmentChartData);
 
         // Dados por tipo de manutenção
@@ -159,6 +213,14 @@ const Reports = () => {
           },
         ];
         setPriorityData(priorityChartData);
+
+        // Dados simples por nível de solicitação
+        const prioritySimple = [
+          { nivel: 'Não Urgente', total: allOrders.filter(os => os.priority === 'nao_urgente').length },
+          { nivel: 'Urgente', total: allOrders.filter(os => os.priority === 'urgente').length },
+          { nivel: 'Emergencial', total: allOrders.filter(os => os.priority === 'emergencial').length },
+        ];
+        setPrioritySimpleData(prioritySimple);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -193,27 +255,35 @@ const Reports = () => {
         'Equipamento',
         'Descrição',
         'Status',
-        'Prioridade',
+        'Nível de Solicitação',
         'Tipo Manutenção',
         'Solicitante',
         'Data Abertura',
-        'Data Conclusão'
+        'Data Conclusão',
+        'Tempo de Resolução (h)'
       ];
 
       // Mapear dados para CSV
-      const rows = orders.map((os: any) => [
-        os.os_number,
-        os.sectors?.name || 'N/A',
-        os.service_departments?.name || 'Não definido',
-        os.equipment,
-        os.description.replace(/"/g, '""'), // Escapar aspas
-        os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
-        os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
-        os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
-        os.profiles?.full_name || 'N/A',
-        format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-        os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Não concluída'
-      ]);
+      const rows = orders.map((os: any) => {
+        const resolutionTime = os.completed_at 
+          ? Math.round((new Date(os.completed_at).getTime() - new Date(os.created_at).getTime()) / (1000 * 60 * 60))
+          : '';
+        
+        return [
+          os.os_number,
+          os.sectors?.name || 'N/A',
+          os.service_departments?.name || 'Não definido',
+          os.equipment,
+          os.description.replace(/"/g, '""'), // Escapar aspas
+          os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
+          os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
+          os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
+          os.profiles?.full_name || 'N/A',
+          format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Não concluída',
+          resolutionTime || 'N/A'
+        ];
+      });
 
       // Construir CSV
       const csvContent = [
@@ -291,14 +361,25 @@ const Reports = () => {
       ]);
 
       (doc as any).autoTable({
-        head: [['Nº OS', 'Setor Origem', 'Responsável', 'Equipamento', 'Status', 'Nível de Solicitação', 'Data']],
+        head: [['Nº OS', 'Setor Origem', 'Responsável', 'Equipamento', 'Status', 'Nível', 'Data']],
         body: tableData,
         startY: 40,
         theme: 'grid',
-        headStyles: { fillColor: [0, 123, 127] }, // Cor primária do app
-        styles: { fontSize: 9 },
+        headStyles: { fillColor: [0, 123, 127] },
+        styles: { fontSize: 8 },
         margin: { top: 40 },
       });
+
+      // Rodapé
+      const finalY = (doc as any).lastAutoTable.finalY || 40;
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text(
+        'Relatório gerado automaticamente pelo Sistema de Ordens de Serviço – Pequeno Cotolengo.',
+        14,
+        finalY + 10
+      );
+      doc.text('Dados atualizados em tempo real.', 14, finalY + 15);
 
       // Salvar PDF
       doc.save(`relatorio-os-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`);
@@ -402,118 +483,205 @@ const Reports = () => {
           </Dialog>
         </div>
 
+        <p className="text-sm text-muted-foreground mb-6">Dados atualizados em tempo real — consolidados por status e prioridade.</p>
+
+        {/* Filtros Globais */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Filtros</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Data Inicial</Label>
+                <input
+                  id="startDate"
+                  type="date"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">Data Final</Label>
+                <input
+                  id="endDate"
+                  type="date"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="aberta">Aberta</SelectItem>
+                    <SelectItem value="em_andamento">Em Andamento</SelectItem>
+                    <SelectItem value="concluida">Concluída</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2 flex items-end gap-2">
+                <Button onClick={fetchStats} className="flex-1">Aplicar Filtros</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setFilters({ startDate: '', endDate: '', sectorOrigin: [], responsibleDept: [], priority: [], status: 'all' })}
+                >
+                  Limpar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* KPI Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-l-4 border-l-destructive animate-fade-in">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <Card className="border-l-4 border-l-destructive">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <AlertCircle className="h-3 w-3" />
                 O.S. Abertas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats.totalOpen}</div>
-              <p className="text-xs text-muted-foreground mt-1">Chamados pendentes</p>
+              <div className="text-2xl font-bold text-destructive">{stats.totalOpen}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-chart-1 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+          <Card className="border-l-4 border-l-chart-1">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="h-3 w-3" />
                 Em Andamento
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats.totalInProgress}</div>
-              <p className="text-xs text-muted-foreground mt-1">Em execução</p>
+              <div className="text-2xl font-bold" style={{ color: '#FFC107' }}>{stats.totalInProgress}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-chart-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <CheckCircle className="h-4 w-4" />
+          <Card className="border-l-4 border-l-chart-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <CheckCircle className="h-3 w-3" />
                 Concluídas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats.totalCompleted}</div>
-              <p className="text-xs text-muted-foreground mt-1">Finalizadas com sucesso</p>
+              <div className="text-2xl font-bold" style={{ color: '#00A08A' }}>{stats.totalCompleted}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-destructive animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <Card className="border-l-4" style={{ borderLeftColor: '#FFC107' }}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                ⚠️ O.S. Urgentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" style={{ color: '#FFC107' }}>{stats.totalUrgent}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-destructive">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                 ❗ O.S. Emergenciais
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats.totalUrgent}</div>
-              <p className="text-xs text-muted-foreground mt-1">Necessitam atenção imediata</p>
+              <div className="text-2xl font-bold text-destructive">{stats.totalEmergency}</div>
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-primary animate-fade-in" style={{ animationDelay: '0.4s' }}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Tempo Médio de Resolução
+          <Card className="border-l-4 border-l-primary">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="h-3 w-3" />
+                Tempo Médio
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stats.avgResolutionTime}h</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.avgResolutionTime < 24 ? 'Excelente desempenho' : 'Avaliação de desempenho'}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-chart-2 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Concluídas ≤ 7 dias
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.completedLast7Days}</div>
-              <p className="text-xs text-muted-foreground mt-1">Eficiência semanal</p>
+              <div className="text-2xl font-bold">{stats.avgResolutionTime}h</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Gráfico de Tendência */}
-        <Card className="animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          <CardHeader>
-            <CardTitle>Evolução das O.S. ao longo do tempo</CardTitle>
-            <CardDescription>Últimos 30 dias</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                abertas: { label: 'Abertas', color: 'hsl(var(--destructive))' },
-                andamento: { label: 'Em Andamento', color: 'hsl(var(--chart-1))' },
-                concluidas: { label: 'Concluídas', color: 'hsl(var(--chart-2))' },
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Line type="monotone" dataKey="abertas" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="andamento" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="concluidas" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+        {/* Grid de gráficos principais */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Tendência de Abertura e Conclusão */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Tendência de Abertura e Conclusão</CardTitle>
+              <CardDescription>Últimos 30 dias</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  abertas: { label: 'Abertas', color: '#E53935' },
+                  concluidas: { label: 'Concluídas', color: '#00A08A' },
+                }}
+                className="h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={openCloseTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Line type="monotone" dataKey="abertas" stroke="#E53935" strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="concluidas" stroke="#00A08A" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Baseado nas solicitações registradas no período selecionado.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Chamados por Nível de Solicitação */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Chamados por Nível de Solicitação</CardTitle>
+              <CardDescription>Distribuição por nível de urgência</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  total: { label: 'Total', color: 'hsl(var(--primary))' },
+                }}
+                className="h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={prioritySimpleData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="nivel" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                      {prioritySimpleData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.nivel === 'Emergencial' ? '#E53935' : entry.nivel === 'Urgente' ? '#FFC107' : '#00A08A'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Baseado nas solicitações registradas no período selecionado.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Grid de gráficos secundários */}
         <div className="grid gap-6 lg:grid-cols-2">
@@ -570,7 +738,7 @@ const Reports = () => {
           </Card>
 
           {/* Gráfico por Tipo de Manutenção */}
-          <Card className="animate-fade-in" style={{ animationDelay: '0.8s' }}>
+          <Card>
             <CardHeader>
               <CardTitle>Tipos de Manutenção</CardTitle>
               <CardDescription>Distribuição por categoria</CardDescription>
@@ -604,38 +772,38 @@ const Reports = () => {
               </ChartContainer>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Gráfico de Níveis de Solicitação */}
-        <Card className="animate-fade-in" style={{ animationDelay: '0.9s' }}>
-          <CardHeader>
-            <CardTitle>Chamados por Nível de Solicitação</CardTitle>
-            <CardDescription>Distribuição de níveis de urgência por status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                emergencial: { label: '❗ Emergencial', color: '#E53935' },
-                urgente: { label: '⚠️ Urgente', color: '#FFC107' },
-                nao_urgente: { label: '🟢 Não Urgente', color: '#00A08A' },
-              }}
-              className="h-[300px]"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={priorityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="status" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="emergencial" stackId="a" fill={COLORS.priority.emergencial} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="urgente" stackId="a" fill={COLORS.priority.urgente} radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="nao_urgente" stackId="a" fill={COLORS.priority.nao_urgente} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+          {/* Distribuição por Status e Nível */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribuição por Status e Nível</CardTitle>
+              <CardDescription>Níveis de urgência por status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  emergencial: { label: '❗ Emergencial', color: '#E53935' },
+                  urgente: { label: '⚠️ Urgente', color: '#FFC107' },
+                  nao_urgente: { label: '🟢 Não Urgente', color: '#00A08A' },
+                }}
+                className="h-[300px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="status" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar dataKey="emergencial" stackId="a" fill={COLORS.priority.emergencial} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="urgente" stackId="a" fill={COLORS.priority.urgente} radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="nao_urgente" stackId="a" fill={COLORS.priority.nao_urgente} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );

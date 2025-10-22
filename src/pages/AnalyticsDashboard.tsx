@@ -14,11 +14,14 @@ interface DashboardStats {
   aberta: number;
   em_andamento: number;
   concluida: number;
+  urgente: number;
+  emergencial: number;
   avgTime: number;
   completedLast7Days: number;
   criticalSLA: number;
   byPriority: { priority: string; count: number }[];
   bySector: { sector: string; count: number }[];
+  byDepartment: { department: string; count: number }[];
   byType: { type: string; count: number }[];
 }
 
@@ -30,11 +33,14 @@ const AnalyticsDashboard = () => {
     aberta: 0,
     em_andamento: 0,
     concluida: 0,
+    urgente: 0,
+    emergencial: 0,
     avgTime: 0,
     completedLast7Days: 0,
     criticalSLA: 0,
     byPriority: [],
     bySector: [],
+    byDepartment: [],
     byType: [],
   });
   const [loading, setLoading] = useState(true);
@@ -61,7 +67,7 @@ const AnalyticsDashboard = () => {
     setLoading(true);
     try {
       // Buscar todas as O.S.
-      let query = supabase.from('service_orders').select('*, sectors(name)');
+      let query = supabase.from('service_orders').select('*, sectors(name), service_departments(name)');
 
       // Aplicar filtros
       if (filter.sector !== 'all') query = query.eq('sector_id', filter.sector);
@@ -81,6 +87,8 @@ const AnalyticsDashboard = () => {
       const aberta = orders?.filter((o) => o.status === 'aberta').length || 0;
       const em_andamento = orders?.filter((o) => o.status === 'em_andamento').length || 0;
       const concluida = orders?.filter((o) => o.status === 'concluida').length || 0;
+      const urgente = orders?.filter((o) => o.priority === 'urgente').length || 0;
+      const emergencial = orders?.filter((o) => o.priority === 'emergencial').length || 0;
 
       // Tempo médio de execução (em horas)
       const completedOrders = orders?.filter((o) => o.completed_at) || [];
@@ -113,13 +121,21 @@ const AnalyticsDashboard = () => {
       });
       const byPriority = Object.entries(priorityCounts).map(([priority, count]) => ({ priority, count }));
 
-      // Por setor
+      // Por setor origem
       const sectorCounts: Record<string, number> = {};
       orders?.forEach((o) => {
         const sectorName = o.sectors?.name || 'Sem setor';
         sectorCounts[sectorName] = (sectorCounts[sectorName] || 0) + 1;
       });
       const bySector = Object.entries(sectorCounts).map(([sector, count]) => ({ sector, count }));
+
+      // Por setor responsável
+      const deptCounts: Record<string, number> = {};
+      orders?.forEach((o) => {
+        const deptName = o.service_departments?.name || 'Não definido';
+        deptCounts[deptName] = (deptCounts[deptName] || 0) + 1;
+      });
+      const byDepartment = Object.entries(deptCounts).map(([department, count]) => ({ department, count }));
 
       // Por tipo
       const typeCounts: Record<string, number> = {};
@@ -133,11 +149,14 @@ const AnalyticsDashboard = () => {
         aberta,
         em_andamento,
         concluida,
+        urgente,
+        emergencial,
         avgTime,
         completedLast7Days,
         criticalSLA,
         byPriority,
         bySector,
+        byDepartment,
         byType,
       });
       setLastUpdate(new Date());
@@ -247,49 +266,74 @@ const AnalyticsDashboard = () => {
         </Card>
 
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total de O.S.</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <AlertTriangle className="h-3 w-3 text-destructive" />
                 O.S. Abertas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{stats.aberta}</div>
+              <div className="text-2xl font-bold text-destructive">{stats.aberta}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4 text-yellow-500" />
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="h-3 w-3" />
                 Em Andamento
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-yellow-600">{stats.em_andamento}</div>
+              <div className="text-2xl font-bold" style={{ color: '#FFC107' }}>{stats.em_andamento}</div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3" />
                 Concluídas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.concluida}</div>
+              <div className="text-2xl font-bold" style={{ color: '#00A08A' }}>{stats.concluida}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground">
+                ⚠️ O.S. Urgentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" style={{ color: '#FFC107' }}>{stats.urgente}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground">
+                ❗ O.S. Emergenciais
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">{stats.emergencial}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                <Activity className="h-3 w-3" />
+                Tempo Médio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.avgTime.toFixed(1)}h</div>
             </CardContent>
           </Card>
         </div>
@@ -332,17 +376,16 @@ const AnalyticsDashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader>
-              <CardTitle>O.S. por Setor</CardTitle>
+              <CardTitle>Chamados por Setor de Origem</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.bySector}>
+                <BarChart data={stats.bySector} layout="horizontal">
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="sector" />
-                  <YAxis />
+                  <XAxis type="category" dataKey="sector" fontSize={11} />
+                  <YAxis type="number" fontSize={11} />
                   <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" name="Quantidade" fill="hsl(var(--primary))" />
+                  <Bar dataKey="count" name="Quantidade" fill="#00A08A" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -350,17 +393,16 @@ const AnalyticsDashboard = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>O.S. por Tipo de Manutenção</CardTitle>
+              <CardTitle>Distribuição por Setor Responsável</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.byType.map((t) => ({ ...t, type: typeLabels[t.type] || t.type }))}>
+                <BarChart data={stats.byDepartment}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="type" />
-                  <YAxis />
+                  <XAxis dataKey="department" fontSize={11} />
+                  <YAxis fontSize={11} />
                   <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" name="Quantidade" fill="hsl(var(--accent))" />
+                  <Bar dataKey="count" name="Quantidade" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
