@@ -553,7 +553,7 @@ const Administration = () => {
                                 size="sm"
                                 onClick={() => handleToggleSectorStatus(sector.id, sector.is_active)}
                               >
-                                {sector.is_active ? '🔴' : '🟢'}
+                                {sector.is_active ? '🟢' : '🔴'}
                               </Button>
                               <Button
                                 variant="ghost"
@@ -686,7 +686,7 @@ const Administration = () => {
                                 size="sm"
                                 onClick={() => handleToggleDepartmentStatus(dept.id, dept.is_active)}
                               >
-                                {dept.is_active ? '🔴' : '🟢'}
+                                {dept.is_active ? '🟢' : '🔴'}
                               </Button>
                               <Button
                                 variant="ghost"
