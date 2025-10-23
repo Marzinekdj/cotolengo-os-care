@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, CheckCircle, Upload } from 'lucide-react';
+import { z } from 'zod';
 
 interface Sector {
   id: string;
@@ -22,6 +23,27 @@ interface Department {
   name: string;
   description: string | null;
 }
+
+// Validation schemas for input sanitization and length limits
+const serviceOrderSchema = z.object({
+  category: z.string().min(1, 'Categoria é obrigatória'),
+  equipment: z.string()
+    .trim()
+    .min(3, 'Equipamento deve ter pelo menos 3 caracteres')
+    .max(200, 'Equipamento deve ter no máximo 200 caracteres'),
+  description: z.string()
+    .trim()
+    .min(10, 'Descrição deve ter pelo menos 10 caracteres')
+    .max(2000, 'Descrição deve ter no máximo 2000 caracteres'),
+  priority: z.enum(['nao_urgente', 'urgente', 'emergencial']),
+  sectorId: z.string().uuid('Setor inválido'),
+  responsibleDepartmentId: z.string().uuid('Departamento inválido').optional().or(z.literal('')),
+});
+
+const newSectorSchema = z.string()
+  .trim()
+  .min(2, 'Nome do setor deve ter pelo menos 2 caracteres')
+  .max(100, 'Nome do setor deve ter no máximo 100 caracteres');
 
 const NewOS = () => {
   const { profile } = useAuth();
@@ -113,6 +135,20 @@ const NewOS = () => {
   const createNewSector = async (): Promise<string | null> => {
     if (!newSectorName.trim()) return null;
 
+    // Validate sector name
+    try {
+      newSectorSchema.parse(newSectorName);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Erro de validação',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+        return null;
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from('sectors')
@@ -203,7 +239,7 @@ const NewOS = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar campos obrigatórios
+    // Validar campos obrigatórios básicos
     if (!formData.category || !formData.equipment || !formData.description || !formData.priority) {
       toast({
         title: 'Campos obrigatórios',
@@ -213,6 +249,7 @@ const NewOS = () => {
       return;
     }
 
+    // UX only - actual access controlled by RLS policies
     // Validar setor responsável para Coordenação/Admin
     if ((profile?.role === 'coordenacao') && !formData.responsibleDepartmentId) {
       toast({
@@ -240,6 +277,28 @@ const NewOS = () => {
         variant: 'destructive',
       });
       return;
+    }
+
+    // Validate inputs with zod schema
+    try {
+      const sectorId = showNewSectorField ? '00000000-0000-0000-0000-000000000000' : formData.sectorId; // Placeholder UUID for validation
+      serviceOrderSchema.parse({
+        category: formData.category,
+        equipment: formData.equipment,
+        description: formData.description,
+        priority: formData.priority,
+        sectorId: sectorId,
+        responsibleDepartmentId: formData.responsibleDepartmentId || '',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Erro de validação',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -401,6 +460,7 @@ const NewOS = () => {
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
+                  {/* UX only - actual access controlled by RLS policies */}
                   <Label htmlFor="responsibleDepartment">Setor Responsável {profile?.role === 'coordenacao' ? '*' : ''}</Label>
                   <span className="text-xs text-muted-foreground">
                     🏢 Quem irá atender este chamado
@@ -424,8 +484,9 @@ const NewOS = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {/* UX only - actual access controlled by RLS policies */}
                 <p className="text-xs text-muted-foreground">
-                  {profile?.role === 'coordenacao' 
+                  {profile?.role === 'coordenacao'
                     ? 'Obrigatório definir o setor responsável'
                     : 'Pode ser ajustado pela Coordenação'}
                 </p>

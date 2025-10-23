@@ -391,6 +391,7 @@ const OSDetail = () => {
           </CardContent>
         </Card>
 
+        {/* UX only - actual access controlled by RLS policies */}
         {(profile?.role === 'tecnico' || profile?.role === 'coordenacao') && (
           <Card>
             <CardHeader>
@@ -415,6 +416,7 @@ const OSDetail = () => {
           </Card>
         )}
 
+        {/* UX only - actual access controlled by RLS policies */}
         {profile?.role === 'coordenacao' && (
           <Card>
             <CardHeader>

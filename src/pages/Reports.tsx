@@ -52,6 +52,7 @@ const Reports = () => {
   useEffect(() => {
     if (!profile) {
       navigate('/auth');
+    // UX only - actual access controlled by RLS policies
     } else if (profile.role !== 'coordenacao') {
       navigate('/dashboard');
     } else {

@@ -53,6 +53,7 @@ const OSList = () => {
         .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name), photo_url, service_departments(name)')
         .order('created_at', { ascending: false });
 
+      // UX only - actual access controlled by RLS policies
       // Filtrar baseado no role
       if (profile?.role === 'solicitante') {
         query = query.eq('requester_id', profile.id);

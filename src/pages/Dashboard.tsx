@@ -49,6 +49,7 @@ const Dashboard = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
+      // UX only - actual access controlled by RLS policies
       // Filtrar baseado no role (RLS já filtra, mas deixamos explícito)
       if (profile?.role === 'solicitante') {
         query = query.eq('requester_id', profile.id);
@@ -203,6 +204,7 @@ const Dashboard = () => {
               <Plus className="h-4 w-4" />
               Nova O.S.
             </Button>
+            {/* UX only - actual access controlled by RLS policies */}
             {profile.role === 'coordenacao' && (
               <Button variant="outline" onClick={() => navigate('/reports')} className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -284,11 +286,13 @@ const Dashboard = () => {
             <Plus className="h-5 w-5" />
             Nova O.S.
           </Button>
+          {/* UX only - actual access controlled by RLS policies */}
           {profile?.role === 'coordenacao' && (
             <Button onClick={() => navigate('/analytics')} className="w-full gap-2" variant="outline">
               📊 Dashboards
             </Button>
           )}
+          {/* UX only - actual access controlled by RLS policies */}
           {profile?.role === 'coordenacao' && (
             <Button onClick={() => navigate('/admin')} className="w-full gap-2" variant="outline">
               ⚙️ Administração
