@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, CheckCircle, MessageSquare, Clock } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface ServiceOrderDetail {
   id: string;
@@ -24,12 +25,18 @@ interface ServiceOrderDetail {
   completed_at: string | null;
   photo_url: string | null;
   responsible_department_id: string | null;
-  sectors: { name: string };
+  sector_id: string;
+  sectors: { id: string; name: string };
   profiles: { full_name: string };
   service_departments?: { name: string } | null;
 }
 
 interface Department {
+  id: string;
+  name: string;
+}
+
+interface Sector {
   id: string;
   name: string;
 }
@@ -51,8 +58,11 @@ const OSDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [newStatus, setNewStatus] = useState('');
   const [newDepartmentId, setNewDepartmentId] = useState('');
+  const [newSectorId, setNewSectorId] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showConfirmOriginSectorDialog, setShowConfirmOriginSectorDialog] = useState(false);
 
   useEffect(() => {
     if (!profile) {
@@ -61,6 +71,7 @@ const OSDetail = () => {
       fetchServiceOrder();
       fetchUpdates();
       fetchDepartments();
+      fetchSectors();
     }
   }, [profile, id, navigate]);
 
@@ -68,7 +79,7 @@ const OSDetail = () => {
     try {
       const { data, error } = await supabase
         .from('service_orders')
-        .select('*, sectors(name), profiles!service_orders_requester_id_fkey(full_name), service_departments(name)')
+        .select('*, sectors(id, name), profiles!service_orders_requester_id_fkey(full_name), service_departments(name)')
         .eq('id', id)
         .single();
 
@@ -76,6 +87,7 @@ const OSDetail = () => {
       setServiceOrder(data);
       setNewStatus(data.status);
       setNewDepartmentId(data.responsible_department_id || '');
+      setNewSectorId(data.sector_id || '');
     } catch (error) {
       console.error('Error fetching service order:', error);
       toast({
@@ -100,6 +112,21 @@ const OSDetail = () => {
       setDepartments(data || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
+    }
+  };
+
+  const fetchSectors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sectors')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setSectors(data || []);
+    } catch (error) {
+      console.error('Error fetching sectors:', error);
     }
   };
 
@@ -215,6 +242,44 @@ const OSDetail = () => {
       toast({
         title: 'Erro',
         description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateOriginSector = async () => {
+    if (newSectorId === serviceOrder?.sector_id) return;
+
+    try {
+      const oldSector = serviceOrder?.sectors?.name || 'Não definido';
+      const newSector = sectors.find(s => s.id === newSectorId)?.name || 'Não definido';
+
+      const { error } = await supabase
+        .from('service_orders')
+        .update({ sector_id: newSectorId })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Registrar no histórico
+      await supabase.from('os_updates').insert({
+        service_order_id: id,
+        user_id: profile?.id,
+        comment: `Setor de Origem alterado de "${oldSector}" para "${newSector}"`,
+      });
+
+      toast({
+        title: 'Setor de Origem atualizado',
+        description: `O.S. movida para o setor ${newSector}`,
+      });
+
+      setShowConfirmOriginSectorDialog(false);
+      fetchServiceOrder();
+      fetchUpdates();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível atualizar o setor. Tente novamente',
         variant: 'destructive',
       });
     }
@@ -418,7 +483,7 @@ const OSDetail = () => {
 
         {/* UX only - actual access controlled by RLS policies */}
         {profile?.role === 'coordenacao' && (
-          <Card>
+          <Card className="mb-6">
             <CardHeader>
               <CardTitle>Reatribuir Setor Responsável</CardTitle>
             </CardHeader>
@@ -445,6 +510,76 @@ const OSDetail = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* UX only - actual access controlled by RLS policies */}
+        {profile?.role === 'coordenacao' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Atualizar Setor de Origem</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Select 
+                value={newSectorId} 
+                onValueChange={setNewSectorId}
+                disabled={serviceOrder.status === 'concluida' || serviceOrder.status === 'cancelada'}
+              >
+                <SelectTrigger aria-label="Novo setor de origem">
+                  <SelectValue placeholder="Selecione o novo setor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sectors.map((sector) => (
+                    <SelectItem key={sector.id} value={sector.id}>
+                      {sector.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={() => setShowConfirmOriginSectorDialog(true)}
+                disabled={
+                  newSectorId === serviceOrder.sector_id || 
+                  serviceOrder.status === 'concluida' || 
+                  serviceOrder.status === 'cancelada'
+                }
+                className="w-full"
+                aria-label="Atualizar Setor"
+                title={
+                  serviceOrder.status === 'concluida' || serviceOrder.status === 'cancelada' 
+                    ? 'Para alterar após conclusão, reabra a O.S.' 
+                    : undefined
+                }
+              >
+                Atualizar Setor
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                <a href="/admin" className="hover:underline">Gerenciar setores</a>
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        <AlertDialog open={showConfirmOriginSectorDialog} onOpenChange={setShowConfirmOriginSectorDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar alteração do setor de origem</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>Esta mudança altera onde a O.S. será contabilizada e listada.</p>
+                <div className="bg-muted p-3 rounded-md mt-3">
+                  <p className="text-sm">
+                    <strong>De:</strong> {serviceOrder?.sectors?.name || 'Não definido'}
+                  </p>
+                  <p className="text-sm mt-1">
+                    <strong>Para:</strong> {sectors.find(s => s.id === newSectorId)?.name || 'Não definido'}
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleUpdateOriginSector}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
