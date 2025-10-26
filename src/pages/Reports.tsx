@@ -13,6 +13,8 @@ import { LineChart, Line, BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAx
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const Reports = () => {
   const { profile } = useAuth();
@@ -322,9 +324,6 @@ const Reports = () => {
 
   const generatePDFReport = async () => {
     try {
-      const { default: jsPDF } = await import('jspdf');
-      await import('jspdf-autotable');
-
       const daysAgo = parseInt(exportPeriod);
       const startDate = subDays(new Date(), daysAgo);
 
@@ -379,7 +378,7 @@ const Reports = () => {
       });
 
       // Gerar tabela com autoTable
-      (doc as any).autoTable({
+      autoTable(doc, {
         head: [[
           'Nº OS',
           'Setor Origem',
