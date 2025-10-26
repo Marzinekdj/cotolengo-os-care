@@ -35,7 +35,9 @@ const Reports = () => {
   const [maintenanceTypeData, setMaintenanceTypeData] = useState<any[]>([]);
   const [priorityData, setPriorityData] = useState<any[]>([]);
   const [prioritySimpleData, setPrioritySimpleData] = useState<any[]>([]);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'csv'>('pdf');
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'xlsx'>('pdf');
+  const [includeCharts, setIncludeCharts] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [exportPeriod, setExportPeriod] = useState('30');
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [sectors, setSectors] = useState<any[]>([]);
@@ -228,90 +230,91 @@ const Reports = () => {
     }
   };
 
-  const generateCSVReport = async () => {
+  const generateExcelReport = async () => {
     try {
       const daysAgo = parseInt(exportPeriod);
       const startDate = subDays(new Date(), daysAgo);
 
       const { data: orders } = await supabase
         .from('service_orders')
-        .select('*, sectors(name), profiles!requester_id(full_name)')
+        .select('*, sectors(name), service_departments(name), profiles!requester_id(full_name)')
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
 
       if (!orders || orders.length === 0) {
         toast({
-          title: 'Nenhum dado encontrado',
-          description: `Não há O.S. registradas nos últimos ${exportPeriod} dias.`,
+          title: 'Sem dados',
+          description: 'Não há registros para os filtros selecionados',
           variant: 'destructive',
         });
         return;
       }
 
-      // Cabeçalho do CSV
-      const headers = [
-        'Número OS',
-        'Setor Origem',
-        'Setor Responsável',
-        'Equipamento',
-        'Descrição',
-        'Status',
-        'Nível de Solicitação',
-        'Tipo Manutenção',
-        'Solicitante',
-        'Data Abertura',
-        'Data Conclusão',
-        'Tempo de Resolução (h)'
-      ];
+      // Importar xlsx dinamicamente
+      const XLSX = await import('xlsx');
 
-      // Mapear dados para CSV
-      const rows = orders.map((os: any) => {
+      // Mapear os dados
+      const excelData = orders.map((os: any) => {
         const resolutionTime = os.completed_at 
-          ? Math.round((new Date(os.completed_at).getTime() - new Date(os.created_at).getTime()) / (1000 * 60 * 60))
-          : '';
-        
-        return [
-          os.os_number,
-          os.sectors?.name || 'N/A',
-          os.service_departments?.name || 'Não definido',
-          os.equipment,
-          os.description.replace(/"/g, '""'), // Escapar aspas
-          os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
-          os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
-          os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
-          os.profiles?.full_name || 'N/A',
-          format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-          os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'Não concluída',
-          resolutionTime || 'N/A'
-        ];
+          ? ((new Date(os.completed_at).getTime() - new Date(os.created_at).getTime()) / (1000 * 60 * 60)).toFixed(1)
+          : 'N/A';
+
+        return {
+          'Número OS': os.os_number,
+          'Setor Origem': os.sectors?.name || 'N/A',
+          'Setor Responsável': os.service_departments?.name || 'N/A',
+          'Categoria': os.category === 'manutencao' ? 'Manutenção' : os.category === 'instalacao' ? 'Instalação' : 'Outros',
+          'Equipamento': os.equipment,
+          'Descrição': os.description,
+          'Status': os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
+          'Nível de Solicitação': os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
+          'Tipo Manutenção': os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
+          'Solicitante': os.profiles?.full_name || 'N/A',
+          'Data Abertura': format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          'Data Conclusão': os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A',
+          'Tempo de Resolução (h)': resolutionTime,
+        };
       });
 
-      // Construir CSV
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-      ].join('\n');
+      // Criar worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
 
-      // Criar Blob e fazer download
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `relatorio-os-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Definir larguras das colunas
+      ws['!cols'] = [
+        { wch: 12 },  // Número OS
+        { wch: 25 },  // Setor Origem
+        { wch: 25 },  // Setor Responsável
+        { wch: 15 },  // Categoria
+        { wch: 20 },  // Equipamento
+        { wch: 40 },  // Descrição
+        { wch: 15 },  // Status
+        { wch: 20 },  // Nível de Solicitação
+        { wch: 18 },  // Tipo Manutenção
+        { wch: 20 },  // Solicitante
+        { wch: 18 },  // Data Abertura
+        { wch: 18 },  // Data Conclusão
+        { wch: 18 },  // Tempo de Resolução
+      ];
+
+      // Congelar primeira linha
+      ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+      // Criar workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'OS');
+
+      // Gerar e baixar
+      XLSX.writeFile(wb, `relatorio-os_${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`);
 
       toast({
-        title: '✅ Relatório CSV gerado com sucesso!',
+        title: 'Relatório exportado com sucesso',
         description: `${orders.length} O.S. exportadas.`,
       });
     } catch (error) {
-      console.error('Erro ao gerar CSV:', error);
+      console.error('Erro ao gerar Excel:', error);
       toast({
-        title: 'Erro ao gerar relatório',
-        description: 'Não foi possível gerar o arquivo CSV.',
+        title: 'Erro ao gerar arquivo',
+        description: 'Não foi possível gerar o arquivo. Tente novamente',
         variant: 'destructive',
       });
     }
@@ -319,7 +322,6 @@ const Reports = () => {
 
   const generatePDFReport = async () => {
     try {
-      // Importar jsPDF dinamicamente
       const { default: jsPDF } = await import('jspdf');
       await import('jspdf-autotable');
 
@@ -334,78 +336,146 @@ const Reports = () => {
 
       if (!orders || orders.length === 0) {
         toast({
-          title: 'Nenhum dado encontrado',
-          description: `Não há O.S. registradas nos últimos ${exportPeriod} dias.`,
+          title: 'Sem dados',
+          description: 'Não há registros para os filtros selecionados',
           variant: 'destructive',
         });
         return;
       }
 
-      const doc = new jsPDF('landscape');
-
-      // Cabeçalho
+      const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+      
+      // Logo e Cabeçalho
       doc.setFontSize(18);
-      doc.text('Relatório de Ordens de Serviço', 14, 20);
-      doc.setFontSize(11);
-      doc.text(`Período: Últimos ${exportPeriod} dias`, 14, 28);
-      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, 14, 34);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório de Ordens de Serviço — Pequeno Cotolengo', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Período: Últimos ${exportPeriod} dias`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+      doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, doc.internal.pageSize.getWidth() / 2, 28, { align: 'center' });
 
-      // Tabela
-      const tableData = orders.map((os: any) => [
-        os.os_number.toString(),
-        os.sectors?.name || 'N/A',
-        os.service_departments?.name || 'Não definido',
-        os.equipment,
-        os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
-        os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
-        format(new Date(os.created_at), 'dd/MM/yyyy', { locale: ptBR }),
-      ]);
+      // Preparar dados da tabela
+      const tableData = orders.map((os: any) => {
+        const resolutionTime = os.completed_at 
+          ? ((new Date(os.completed_at).getTime() - new Date(os.created_at).getTime()) / (1000 * 60 * 60)).toFixed(1)
+          : 'N/A';
 
-      (doc as any).autoTable({
-        head: [['Nº OS', 'Setor Origem', 'Responsável', 'Equipamento', 'Status', 'Nível', 'Data']],
-        body: tableData,
-        startY: 40,
-        theme: 'grid',
-        headStyles: { fillColor: [0, 123, 127] },
-        styles: { fontSize: 8 },
-        margin: { top: 40 },
+        return [
+          os.os_number.toString(),
+          os.sectors?.name || 'N/A',
+          os.service_departments?.name || 'N/A',
+          os.category === 'manutencao' ? 'Manutenção' : os.category === 'instalacao' ? 'Instalação' : 'Outros',
+          os.equipment,
+          os.description,
+          os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
+          os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
+          os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
+          os.profiles?.full_name || 'N/A',
+          format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A',
+          resolutionTime,
+        ];
       });
 
-      // Rodapé
-      const finalY = (doc as any).lastAutoTable.finalY || 40;
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      doc.text(
-        'Relatório gerado automaticamente pelo Sistema de Ordens de Serviço – Pequeno Cotolengo.',
-        14,
-        finalY + 10
-      );
-      doc.text('Dados atualizados em tempo real.', 14, finalY + 15);
+      // Gerar tabela com autoTable
+      (doc as any).autoTable({
+        head: [[
+          'Nº OS',
+          'Setor Origem',
+          'Setor Resp.',
+          'Categoria',
+          'Equipamento',
+          'Descrição',
+          'Status',
+          'Nível',
+          'Tipo Man.',
+          'Solicitante',
+          'Data Abertura',
+          'Data Conclusão',
+          'Tempo (h)',
+        ]],
+        body: tableData,
+        startY: 35,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [232, 243, 241], // #E8F3F1
+          textColor: [11, 59, 60], // #0B3B3C
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'left',
+        },
+        styles: {
+          fontSize: 7,
+          cellPadding: 2,
+          overflow: 'linebreak',
+          valign: 'middle',
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' }, // Nº OS
+          1: { cellWidth: 25 }, // Setor Origem
+          2: { cellWidth: 25 }, // Setor Responsável
+          3: { cellWidth: 20 }, // Categoria
+          4: { cellWidth: 22 }, // Equipamento
+          5: { cellWidth: 'auto', overflow: 'linebreak' }, // Descrição
+          6: { cellWidth: 18 }, // Status
+          7: { cellWidth: 20 }, // Nível
+          8: { cellWidth: 18 }, // Tipo Manutenção
+          9: { cellWidth: 22 }, // Solicitante
+          10: { cellWidth: 25 }, // Data Abertura
+          11: { cellWidth: 25 }, // Data Conclusão
+          12: { cellWidth: 18, halign: 'right' }, // Tempo
+        },
+        margin: { left: 10, right: 10 },
+        didDrawPage: (data: any) => {
+          // Rodapé em cada página
+          const pageCount = doc.internal.pages.length - 1;
+          doc.setFontSize(8);
+          doc.setTextColor(100);
+          doc.text(
+            `Página ${data.pageNumber} de ${pageCount}`,
+            doc.internal.pageSize.getWidth() / 2,
+            doc.internal.pageSize.getHeight() - 10,
+            { align: 'center' }
+          );
+          doc.text(
+            `Relatório gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+            doc.internal.pageSize.getWidth() - 14,
+            doc.internal.pageSize.getHeight() - 10,
+            { align: 'right' }
+          );
+        },
+      });
 
       // Salvar PDF
-      doc.save(`relatorio-os-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`);
+      doc.save(`relatorio-os_${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
 
       toast({
-        title: '✅ Relatório PDF gerado com sucesso!',
+        title: 'Relatório exportado com sucesso',
         description: `${orders.length} O.S. exportadas.`,
       });
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       toast({
-        title: 'Erro ao gerar relatório',
-        description: 'Não foi possível gerar o arquivo PDF.',
+        title: 'Erro ao gerar arquivo',
+        description: 'Não foi possível gerar o arquivo. Tente novamente',
         variant: 'destructive',
       });
     }
   };
 
   const handleExportReport = async () => {
+    setIsExporting(true);
     setIsExportOpen(false);
     
-    if (exportFormat === 'csv') {
-      await generateCSVReport();
-    } else {
-      await generatePDFReport();
+    try {
+      if (exportFormat === 'xlsx') {
+        await generateExcelReport();
+      } else {
+        await generatePDFReport();
+      }
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -441,9 +511,9 @@ const Reports = () => {
 
           <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" disabled={isExporting}>
                 <FileDown className="h-4 w-4" />
-                Exportar Relatório
+                {isExporting ? 'Gerando...' : 'Exportar Relatório'}
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -453,31 +523,37 @@ const Reports = () => {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Formato</Label>
-                  <Select value={exportFormat} onValueChange={(value: 'pdf' | 'csv') => setExportFormat(value)}>
-                    <SelectTrigger>
+                  <Select value={exportFormat} onValueChange={(value: 'pdf' | 'xlsx') => setExportFormat(value)}>
+                    <SelectTrigger aria-label="Selecionar formato">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pdf">PDF</SelectItem>
-                      <SelectItem value="csv">CSV</SelectItem>
+                      <SelectItem value="xlsx">Excel (.xlsx)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Período</Label>
                   <Select value={exportPeriod} onValueChange={setExportPeriod}>
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Selecionar período">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="7">Últimos 7 dias</SelectItem>
                       <SelectItem value="30">Últimos 30 dias</SelectItem>
                       <SelectItem value="90">Últimos 90 dias</SelectItem>
+                      <SelectItem value="365">Último ano</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleExportReport} className="w-full">
-                  Gerar e Baixar
+                <Button 
+                  onClick={handleExportReport} 
+                  className="w-full" 
+                  disabled={isExporting}
+                  aria-label="Gerar e baixar relatório"
+                >
+                  {isExporting ? 'Gerando...' : 'Gerar e Baixar'}
                 </Button>
               </div>
             </DialogContent>
