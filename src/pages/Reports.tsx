@@ -301,6 +301,108 @@ const Reports = () => {
       // Congelar primeira linha
       ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
+      // Obter o range da planilha
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      
+      // Aplicar formatação nas células
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          
+          if (!ws[cellAddress]) continue;
+          
+          // Inicializar estilo se não existir
+          if (!ws[cellAddress].s) ws[cellAddress].s = {};
+          
+          // Bordas em todas as células
+          ws[cellAddress].s.border = {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          };
+          
+          // Primeira linha (cabeçalho)
+          if (R === 0) {
+            ws[cellAddress].s = {
+              ...ws[cellAddress].s,
+              font: { bold: true, color: { rgb: '000000' }, sz: 11 },
+              fill: { fgColor: { rgb: 'DCE6F1' } },
+              alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+              border: {
+                top: { style: 'medium', color: { rgb: '000000' } },
+                bottom: { style: 'medium', color: { rgb: '000000' } },
+                left: { style: 'thin', color: { rgb: '000000' } },
+                right: { style: 'thin', color: { rgb: '000000' } }
+              }
+            };
+          } else {
+            // Quebra de texto para Descrição (coluna E, índice 4)
+            if (C === 4) {
+              ws[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
+            }
+            
+            // Centralizar datas (colunas K e L, índices 10 e 11)
+            if (C === 10 || C === 11) {
+              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+            }
+            
+            // Destacar Status (coluna G, índice 6) com cores suaves
+            if (C === 6) {
+              const status = ws[cellAddress].v;
+              if (status === 'Concluída') {
+                ws[cellAddress].s.fill = { fgColor: { rgb: 'D4EDDA' } };
+                ws[cellAddress].s.font = { color: { rgb: '155724' }, bold: true };
+              } else if (status === 'Em Andamento') {
+                ws[cellAddress].s.fill = { fgColor: { rgb: 'FFF3CD' } };
+                ws[cellAddress].s.font = { color: { rgb: '856404' }, bold: true };
+              } else if (status === 'Aberta') {
+                ws[cellAddress].s.fill = { fgColor: { rgb: 'F8D7DA' } };
+                ws[cellAddress].s.font = { color: { rgb: '721C24' }, bold: true };
+              }
+              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+            }
+            
+            // Destacar Nível de Solicitação (coluna H, índice 7)
+            if (C === 7) {
+              ws[cellAddress].s.fill = { fgColor: { rgb: 'FFF9E6' } };
+              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+            }
+            
+            // Destacar Tipo Manutenção (coluna I, índice 8)
+            if (C === 8) {
+              ws[cellAddress].s.fill = { fgColor: { rgb: 'E8F4F8' } };
+              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+            }
+          }
+        }
+      }
+      
+      // Adicionar rodapé
+      const footerRow = range.e.r + 2;
+      const footerCell = XLSX.utils.encode_cell({ r: footerRow, c: 0 });
+      ws[footerCell] = {
+        v: 'Relatório de Ordens de Serviço – Pequeno Cotolengo | Gerado automaticamente via sistema Lovable.dev',
+        t: 's',
+        s: {
+          font: { italic: true, color: { rgb: '666666' }, sz: 9 },
+          alignment: { horizontal: 'left' }
+        }
+      };
+      
+      // Mesclar células do rodapé
+      if (!ws['!merges']) ws['!merges'] = [];
+      ws['!merges'].push({
+        s: { r: footerRow, c: 0 },
+        e: { r: footerRow, c: range.e.c }
+      });
+      
+      // Atualizar range para incluir rodapé
+      ws['!ref'] = XLSX.utils.encode_range({
+        s: { r: range.s.r, c: range.s.c },
+        e: { r: footerRow, c: range.e.c }
+      });
+
       // Criar workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'OS');
