@@ -15,6 +15,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import ExcelJS from 'exceljs';
 
 const Reports = () => {
   const { profile } = useAuth();
@@ -252,163 +253,186 @@ const Reports = () => {
         return;
       }
 
-      // Importar xlsx dinamicamente
-      const XLSX = await import('xlsx');
+      // Criar workbook e worksheet com ExcelJS
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Ordens de Serviço');
 
-      // Mapear os dados
-      const excelData = orders.map((os: any) => {
-        const resolutionTime = os.completed_at 
-          ? ((new Date(os.completed_at).getTime() - new Date(os.created_at).getTime()) / (1000 * 60 * 60)).toFixed(1)
-          : 'N/A';
-
-        return {
-          'Número OS': os.os_number,
-          'Setor Origem': os.sectors?.name || 'N/A',
-          'Setor Responsável': os.service_departments?.name || 'N/A',
-          'Categoria': os.category === 'manutencao' ? 'Manutenção' : os.category === 'instalacao' ? 'Instalação' : 'Outros',
-          'Equipamento': os.equipment,
-          'Descrição': os.description,
-          'Status': os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
-          'Nível de Solicitação': os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
-          'Tipo Manutenção': os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
-          'Solicitante': os.profiles?.full_name || 'N/A',
-          'Data Abertura': format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-          'Data Conclusão': os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A',
-          'Tempo de Resolução (h)': resolutionTime,
-        };
-      });
-
-      // Criar worksheet
-      const ws = XLSX.utils.json_to_sheet(excelData);
-
-      // Definir larguras das colunas
-      ws['!cols'] = [
-        { wch: 12 },  // Número OS
-        { wch: 25 },  // Setor Origem
-        { wch: 25 },  // Setor Responsável
-        { wch: 15 },  // Categoria
-        { wch: 20 },  // Equipamento
-        { wch: 40 },  // Descrição
-        { wch: 15 },  // Status
-        { wch: 20 },  // Nível de Solicitação
-        { wch: 18 },  // Tipo Manutenção
-        { wch: 20 },  // Solicitante
-        { wch: 18 },  // Data Abertura
-        { wch: 18 },  // Data Conclusão
-        { wch: 18 },  // Tempo de Resolução
+      // Definir colunas com largura
+      worksheet.columns = [
+        { header: 'Número OS', key: 'numero', width: 12 },
+        { header: 'Setor Origem', key: 'setorOrigem', width: 20 },
+        { header: 'Setor Responsável', key: 'setorResponsavel', width: 20 },
+        { header: 'Categoria', key: 'categoria', width: 18 },
+        { header: 'Equipamento', key: 'equipamento', width: 20 },
+        { header: 'Descrição', key: 'descricao', width: 35 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Nível de Solicitação', key: 'nivel', width: 18 },
+        { header: 'Tipo Manutenção', key: 'tipo', width: 18 },
+        { header: 'Solicitante', key: 'solicitante', width: 20 },
+        { header: 'Data Abertura', key: 'dataAbertura', width: 18 },
+        { header: 'Data Conclusão', key: 'dataConclusao', width: 18 },
+        { header: 'Tempo de Resolução (h)', key: 'tempo', width: 20 }
       ];
 
-      // Congelar primeira linha
-      ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+      // Adicionar dados
+      orders.forEach((os: any) => {
+        const resolutionTime = os.completed_at 
+          ? ((new Date(os.completed_at).getTime() - new Date(os.created_at).getTime()) / (1000 * 60 * 60)).toFixed(1) + 'h'
+          : 'N/A';
 
-      // Obter o range da planilha
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-      
-      // Aplicar formatação nas células
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-          
-          if (!ws[cellAddress]) continue;
-          
-          // Inicializar estilo se não existir
-          if (!ws[cellAddress].s) ws[cellAddress].s = {};
-          
+        worksheet.addRow({
+          numero: os.os_number,
+          setorOrigem: os.sectors?.name || 'N/A',
+          setorResponsavel: os.service_departments?.name || 'N/A',
+          categoria: os.category === 'manutencao' ? 'Manutenção' : os.category === 'instalacao' ? 'Instalação' : 'Outros',
+          equipamento: os.equipment,
+          descricao: os.description,
+          status: os.status === 'aberta' ? 'Aberta' : os.status === 'em_andamento' ? 'Em Andamento' : 'Concluída',
+          nivel: os.priority === 'emergencial' ? 'Emergencial' : os.priority === 'urgente' ? 'Urgente' : 'Não Urgente',
+          tipo: os.maintenance_type === 'corretiva' ? 'Corretiva' : os.maintenance_type === 'preventiva' ? 'Preventiva' : 'Instalação',
+          solicitante: os.profiles?.full_name || 'N/A',
+          dataAbertura: format(new Date(os.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          dataConclusao: os.completed_at ? format(new Date(os.completed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : 'N/A',
+          tempo: resolutionTime
+        });
+      });
+
+      // Formatação do cabeçalho (primeira linha)
+      const headerRow = worksheet.getRow(1);
+      headerRow.height = 25;
+      headerRow.font = { bold: true, size: 11 };
+      headerRow.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFDCE6F1' }
+      };
+      headerRow.alignment = { 
+        vertical: 'middle', 
+        horizontal: 'center',
+        wrapText: true
+      };
+      headerRow.border = {
+        top: { style: 'medium' },
+        bottom: { style: 'medium' },
+        left: { style: 'thin' },
+        right: { style: 'thin' }
+      };
+
+      // Formatação das células de dados
+      worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        if (rowNumber === 1) return; // Pular cabeçalho
+
+        row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
           // Bordas em todas as células
-          ws[cellAddress].s.border = {
-            top: { style: 'thin', color: { rgb: '000000' } },
-            bottom: { style: 'thin', color: { rgb: '000000' } },
-            left: { style: 'thin', color: { rgb: '000000' } },
-            right: { style: 'thin', color: { rgb: '000000' } }
+          cell.border = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
           };
-          
-          // Primeira linha (cabeçalho)
-          if (R === 0) {
-            ws[cellAddress].s = {
-              ...ws[cellAddress].s,
-              font: { bold: true, color: { rgb: '000000' }, sz: 11 },
-              fill: { fgColor: { rgb: 'DCE6F1' } },
-              alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-              border: {
-                top: { style: 'medium', color: { rgb: '000000' } },
-                bottom: { style: 'medium', color: { rgb: '000000' } },
-                left: { style: 'thin', color: { rgb: '000000' } },
-                right: { style: 'thin', color: { rgb: '000000' } }
-              }
+
+          // Quebra de texto e alinhamento vertical
+          cell.alignment = { 
+            vertical: 'middle',
+            wrapText: true
+          };
+
+          // Centralizar datas (colunas 11 e 12)
+          if (colNumber === 11 || colNumber === 12) {
+            cell.alignment = { 
+              horizontal: 'center', 
+              vertical: 'middle',
+              wrapText: true
             };
-          } else {
-            // Quebra de texto para Descrição (coluna E, índice 4)
-            if (C === 4) {
-              ws[cellAddress].s.alignment = { wrapText: true, vertical: 'top' };
-            }
-            
-            // Centralizar datas (colunas K e L, índices 10 e 11)
-            if (C === 10 || C === 11) {
-              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
-            }
-            
-            // Destacar Status (coluna G, índice 6) com cores suaves
-            if (C === 6) {
-              const status = ws[cellAddress].v;
-              if (status === 'Concluída') {
-                ws[cellAddress].s.fill = { fgColor: { rgb: 'D4EDDA' } };
-                ws[cellAddress].s.font = { color: { rgb: '155724' }, bold: true };
-              } else if (status === 'Em Andamento') {
-                ws[cellAddress].s.fill = { fgColor: { rgb: 'FFF3CD' } };
-                ws[cellAddress].s.font = { color: { rgb: '856404' }, bold: true };
-              } else if (status === 'Aberta') {
-                ws[cellAddress].s.fill = { fgColor: { rgb: 'F8D7DA' } };
-                ws[cellAddress].s.font = { color: { rgb: '721C24' }, bold: true };
-              }
-              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
-            }
-            
-            // Destacar Nível de Solicitação (coluna H, índice 7)
-            if (C === 7) {
-              ws[cellAddress].s.fill = { fgColor: { rgb: 'FFF9E6' } };
-              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
-            }
-            
-            // Destacar Tipo Manutenção (coluna I, índice 8)
-            if (C === 8) {
-              ws[cellAddress].s.fill = { fgColor: { rgb: 'E8F4F8' } };
-              ws[cellAddress].s.alignment = { horizontal: 'center', vertical: 'center' };
+          }
+
+          // Formatação condicional para Status (coluna 7)
+          if (colNumber === 7) {
+            const status = cell.value as string;
+            cell.alignment = { 
+              horizontal: 'center', 
+              vertical: 'middle'
+            };
+            cell.font = { bold: true };
+
+            if (status === 'Aberta') {
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFF8D7DA' }
+              };
+              cell.font = { ...cell.font, color: { argb: 'FF721C24' } };
+            } else if (status === 'Em Andamento') {
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFF3CD' }
+              };
+              cell.font = { ...cell.font, color: { argb: 'FF856404' } };
+            } else if (status === 'Concluída') {
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD4EDDA' }
+              };
+              cell.font = { ...cell.font, color: { argb: 'FF155724' } };
             }
           }
-        }
-      }
-      
-      // Adicionar rodapé
-      const footerRow = range.e.r + 2;
-      const footerCell = XLSX.utils.encode_cell({ r: footerRow, c: 0 });
-      ws[footerCell] = {
-        v: 'Relatório de Ordens de Serviço – Pequeno Cotolengo | Gerado automaticamente via sistema Lovable.dev',
-        t: 's',
-        s: {
-          font: { italic: true, color: { rgb: '666666' }, sz: 9 },
-          alignment: { horizontal: 'left' }
-        }
-      };
+
+          // Destacar Nível de Solicitação (coluna 8)
+          if (colNumber === 8) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFF9E6' }
+            };
+            cell.alignment = { 
+              horizontal: 'center', 
+              vertical: 'middle'
+            };
+          }
+
+          // Destacar Tipo Manutenção (coluna 9)
+          if (colNumber === 9) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFE8F4F8' }
+            };
+            cell.alignment = { 
+              horizontal: 'center', 
+              vertical: 'middle'
+            };
+          }
+        });
+      });
+
+      // Congelar linha de cabeçalho
+      worksheet.views = [
+        { state: 'frozen', ySplit: 1 }
+      ];
+
+      // Adicionar rodapé mesclado
+      const lastRow = worksheet.rowCount + 2;
+      const footerRow = worksheet.getRow(lastRow);
+      footerRow.getCell(1).value = 'Relatório de Ordens de Serviço – Pequeno Cotolengo | Gerado automaticamente via sistema Lovable.dev';
+      footerRow.getCell(1).font = { italic: true, size: 10, color: { argb: 'FF666666' } };
+      footerRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
       
       // Mesclar células do rodapé
-      if (!ws['!merges']) ws['!merges'] = [];
-      ws['!merges'].push({
-        s: { r: footerRow, c: 0 },
-        e: { r: footerRow, c: range.e.c }
-      });
-      
-      // Atualizar range para incluir rodapé
-      ws['!ref'] = XLSX.utils.encode_range({
-        s: { r: range.s.r, c: range.s.c },
-        e: { r: footerRow, c: range.e.c }
-      });
+      worksheet.mergeCells(lastRow, 1, lastRow, 13);
 
-      // Criar workbook
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'OS');
-
-      // Gerar e baixar
-      XLSX.writeFile(wb, `relatorio-os_${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`);
+      // Gerar e baixar arquivo
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `relatorio-os_${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
 
       toast({
         title: 'Relatório exportado com sucesso',
