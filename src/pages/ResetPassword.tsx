@@ -33,14 +33,39 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verificar se há um token de recuperação válido
+    let timeoutId: NodeJS.Timeout;
+
+    // Escutar mudanças de autenticação em tempo real
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, session);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // Token de recuperação detectado
+        setValidToken(true);
+      } else if (event === 'SIGNED_IN' && session) {
+        // Sessão estabelecida com sucesso
+        setValidToken(true);
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        // Aguardar um pouco para o Supabase processar tokens da URL hash
+        timeoutId = setTimeout(() => {
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            setValidToken(session ? true : false);
+          });
+        }, 1500);
+      }
+    });
+
+    // Verificar sessão existente imediatamente
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setValidToken(true);
-      } else {
-        setValidToken(false);
       }
     });
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,9 +130,17 @@ const ResetPassword = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-accent/20 flex items-center justify-center p-4">
         <Card className="w-full max-w-md shadow-lg">
+          <CardHeader className="space-y-4 text-center pb-6">
+            <div className="flex justify-center">
+              <img src={logoCotolengo} alt="Pequeno Cotolengo" className="h-24 object-contain" />
+            </div>
+          </CardHeader>
           <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-muted-foreground">Verificando...</p>
+            <div className="text-center space-y-2">
+              <p className="text-muted-foreground">Verificando link de redefinição...</p>
+              <div className="flex justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
             </div>
           </CardContent>
         </Card>
