@@ -10,6 +10,31 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useToast } from '@/hooks/use-toast';
 import { Play, ExternalLink } from 'lucide-react';
 import logoCotolengo from '@/assets/logo-cotolengo.png';
+import { z } from 'zod';
+
+const loginSchema = z.object({
+  email: z.string()
+    .trim()
+    .email({ message: "Email inválido" })
+    .max(255, { message: "Email deve ter no máximo 255 caracteres" }),
+  password: z.string()
+    .min(6, { message: "Senha deve ter no mínimo 6 caracteres" })
+    .max(100, { message: "Senha deve ter no máximo 100 caracteres" })
+});
+
+const signupSchema = z.object({
+  fullName: z.string()
+    .trim()
+    .min(3, { message: "Nome deve ter no mínimo 3 caracteres" })
+    .max(100, { message: "Nome deve ter no máximo 100 caracteres" }),
+  email: z.string()
+    .trim()
+    .email({ message: "Email inválido" })
+    .max(255, { message: "Email deve ter no máximo 255 caracteres" }),
+  password: z.string()
+    .min(6, { message: "Senha deve ter no mínimo 6 caracteres" })
+    .max(100, { message: "Senha deve ter no máximo 100 caracteres" })
+});
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -35,21 +60,36 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      toast({
-        title: 'Erro ao fazer login',
-        description: error.message === 'Invalid login credentials' 
-          ? 'Email ou senha incorretos' 
-          : error.message,
-        variant: 'destructive',
+    try {
+      const validated = loginSchema.parse({
+        email: email.trim(),
+        password: password
       });
-    } else {
-      toast({
-        title: 'Login realizado com sucesso!',
-        description: 'Redirecionando...',
-      });
+
+      const { error } = await signIn(validated.email, validated.password);
+      
+      if (error) {
+        toast({
+          title: 'Erro ao fazer login',
+          description: error.message === 'Invalid login credentials' 
+            ? 'Email ou senha incorretos' 
+            : error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Login realizado com sucesso!',
+          description: 'Redirecionando...',
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Erro de validação',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      }
     }
     
     setIsLoading(false);
@@ -59,34 +99,40 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!fullName.trim()) {
-      toast({
-        title: 'Nome completo obrigatório',
-        description: 'Por favor, informe seu nome completo',
-        variant: 'destructive',
+    try {
+      const validated = signupSchema.parse({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password: password
       });
-      setIsLoading(false);
-      return;
-    }
 
-    const { error } = await signUp(email, password, fullName);
-    
-    if (error) {
-      toast({
-        title: 'Erro ao criar conta',
-        description: error.message === 'User already registered'
-          ? 'Este email já está cadastrado'
-          : error.message,
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Conta criada com sucesso!',
-        description: 'Você já pode fazer login',
-      });
-      setEmail('');
-      setPassword('');
-      setFullName('');
+      const { error } = await signUp(validated.email, validated.password, validated.fullName);
+      
+      if (error) {
+        toast({
+          title: 'Erro ao criar conta',
+          description: error.message === 'User already registered'
+            ? 'Este email já está cadastrado'
+            : error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Conta criada com sucesso!',
+          description: 'Você já pode fazer login',
+        });
+        setEmail('');
+        setPassword('');
+        setFullName('');
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Erro de validação',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      }
     }
     
     setIsLoading(false);
@@ -144,7 +190,8 @@ const Auth = () => {
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.trimStart())}
+                    maxLength={255}
                     required
                   />
                 </div>
@@ -156,6 +203,8 @@ const Auth = () => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    maxLength={100}
+                    minLength={6}
                     required
                   />
                   <div className="text-right">
@@ -183,7 +232,9 @@ const Auth = () => {
                     type="text"
                     placeholder="Seu nome completo"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) => setFullName(e.target.value.trimStart())}
+                    maxLength={100}
+                    minLength={3}
                     required
                   />
                 </div>
@@ -194,7 +245,8 @@ const Auth = () => {
                     type="email"
                     placeholder="seu@email.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.trimStart())}
+                    maxLength={255}
                     required
                   />
                 </div>
@@ -206,8 +258,11 @@ const Auth = () => {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    maxLength={100}
+                    minLength={6}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">Mínimo 6 caracteres</p>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Criando conta...' : 'Criar conta'}
