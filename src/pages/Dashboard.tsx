@@ -246,7 +246,7 @@ const Dashboard = () => {
                     <CardTitle className="text-lg">O.S. #{os.os_number}</CardTitle>
                     {getPriorityBadge(os.priority)}
                   </div>
-                  <CardDescription>{os.sectors.name}</CardDescription>
+                  <CardDescription>{os.sectors?.name || 'Setor não disponível'}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
