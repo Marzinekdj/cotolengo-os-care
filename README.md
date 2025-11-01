@@ -50,6 +50,55 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
+## 🦊 Como fazer deploy no GitLab Pages
+
+### Pré-requisitos
+
+1. Repositório criado no GitLab
+2. Variáveis de ambiente configuradas
+
+### Configurar variáveis de ambiente no GitLab
+
+1. Acesse seu projeto no GitLab
+2. Vá em **Settings > CI/CD > Variables**
+3. Adicione as seguintes variáveis (marque como "Protected" e "Masked"):
+   - `VITE_SUPABASE_PROJECT_ID`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+   - `VITE_SUPABASE_URL`
+
+### Deploy automático
+
+Após configurar as variáveis:
+
+1. Faça commit e push para a branch `main` ou `master`
+2. O pipeline será executado automaticamente
+3. Acesse sua aplicação em: `https://seu-usuario.gitlab.io/seu-projeto/`
+
+### Ajustar o base path (se necessário)
+
+Se sua URL do GitLab Pages for `https://username.gitlab.io/project-name/`:
+
+1. Edite `vite.config.ts`
+2. Altere a linha:
+   ```typescript
+   base: mode === 'production' ? '/project-name/' : '/',
+   ```
+3. Substitua `/project-name/` pelo nome do seu projeto
+
+### Verificar status do deploy
+
+- Acesse **CI/CD > Pipelines** no GitLab
+- Clique no pipeline mais recente
+- Verifique se todos os stages passaram (✅)
+
+## 🔒 Segurança
+
+⚠️ **IMPORTANTE**: O arquivo `.env` contém credenciais sensíveis e **NÃO** deve ser commitado.
+
+- Use sempre `.env.example` como template
+- Configure as variáveis no GitLab CI/CD
+- Se `.env` foi commitado acidentalmente, **rotacione as credenciais** imediatamente
+
 ## What technologies are used for this project?
 
 This project is built with:

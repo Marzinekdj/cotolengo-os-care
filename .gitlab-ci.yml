@@ -1,0 +1,51 @@
+image: node:18
+
+stages:
+  - install
+  - build
+  - deploy
+
+# Cache para acelerar builds
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - .npm/
+
+# Instalação de dependências
+install:
+  stage: install
+  script:
+    - npm ci --cache .npm --prefer-offline
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+
+# Build da aplicação
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+  dependencies:
+    - install
+
+# Deploy no GitLab Pages
+pages:
+  stage: deploy
+  script:
+    - rm -rf public
+    - mkdir public
+    - cp -r dist/* public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+    - master
+  dependencies:
+    - build

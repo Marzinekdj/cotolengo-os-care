@@ -1,0 +1,15 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Lock files are binary
+package-lock.json binary
+bun.lockb binary
+yarn.lock binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
