@@ -23,7 +23,7 @@ interface ServiceOrder {
   photo_url: string | null;
   responsible_department_id: string | null;
   sectors: { name: string };
-  profiles: { full_name: string };
+  profiles: { full_name: string } | null;
   service_departments?: { name: string } | null;
 }
 
@@ -391,7 +391,7 @@ const OSList = () => {
                         </div>
                         <div>
                           <span className="text-muted-foreground">Solicitante: </span>
-                          <span className="font-medium">{os.profiles.full_name}</span>
+                          <span className="font-medium">{os.profiles?.full_name || 'Não disponível'}</span>
                         </div>
                       </div>
                     </div>
