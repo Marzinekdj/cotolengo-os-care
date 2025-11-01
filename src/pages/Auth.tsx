@@ -20,6 +20,7 @@ const loginSchema = z.object({
   password: z.string()
     .min(6, { message: "Senha deve ter no mínimo 6 caracteres" })
     .max(100, { message: "Senha deve ter no máximo 100 caracteres" })
+    // Senha não usa .trim() - espaços podem ser intencionais
 });
 
 const signupSchema = z.object({
@@ -69,11 +70,19 @@ const Auth = () => {
       const { error } = await signIn(validated.email, validated.password);
       
       if (error) {
+        let errorMessage = 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+        
+        if (error.message === 'Invalid login credentials') {
+          errorMessage = 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Por favor, confirme seu email antes de fazer login.';
+        } else if (error.message.includes('not confirmed')) {
+          errorMessage = 'Conta não confirmada. Verifique seu email.';
+        }
+        
         toast({
           title: 'Erro ao fazer login',
-          description: error.message === 'Invalid login credentials' 
-            ? 'Email ou senha incorretos' 
-            : error.message,
+          description: errorMessage,
           variant: 'destructive',
         });
       } else {
