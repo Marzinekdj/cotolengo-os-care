@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Home, Settings, Bell, FileText, LogOut, Wrench, BarChart3, Camera } from 'lucide-react';
 import logoCotolengo from '@/assets/logo-cotolengo.png';
+import { HelpCoordButton } from '@/components/help/HelpCoordButton';
 
 interface ServiceOrder {
   id: string;
@@ -165,6 +166,7 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <HelpCoordButton />
               <Button
                 variant="ghost"
                 size="icon"
