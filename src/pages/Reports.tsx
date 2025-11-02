@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,11 +16,17 @@ import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
+import html2canvas from 'html2canvas';
 
 const Reports = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Refs para captura de gráficos
+  const trendChartRef = useRef<HTMLDivElement>(null);
+  const priorityChartRef = useRef<HTMLDivElement>(null);
+  
   const [stats, setStats] = useState({
     totalOpen: 0,
     totalInProgress: 0,
@@ -448,6 +454,16 @@ const Reports = () => {
     }
   };
 
+  const captureChartAsImage = async (element: HTMLElement): Promise<string> => {
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      logging: false,
+      useCORS: true,
+    });
+    return canvas.toDataURL('image/png');
+  };
+
   const generatePDFReport = async () => {
     try {
       const daysAgo = parseInt(exportPeriod);
@@ -572,12 +588,54 @@ const Reports = () => {
         },
       });
 
+      // Adicionar página de gráficos
+      try {
+        doc.addPage();
+        
+        // Título da seção de gráficos
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Análise Gráfica', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+        
+        // Capturar e inserir os gráficos
+        let yPosition = 25;
+        
+        // Gráfico 1: Tendência de Abertura e Conclusão
+        if (trendChartRef.current) {
+          const trendImg = await captureChartAsImage(trendChartRef.current);
+          doc.addImage(trendImg, 'PNG', 15, yPosition, 130, 80);
+        }
+        
+        // Gráfico 2: Chamados por Nível de Solicitação
+        if (priorityChartRef.current) {
+          const priorityImg = await captureChartAsImage(priorityChartRef.current);
+          doc.addImage(priorityImg, 'PNG', 150, yPosition, 130, 80);
+        }
+        
+        // Rodapé da página de gráficos
+        doc.setFontSize(8);
+        doc.setTextColor(100);
+        doc.text(
+          `Relatório gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      } catch (chartError) {
+        console.error('Erro ao capturar gráficos:', chartError);
+        toast({
+          title: 'Aviso',
+          description: 'Gráficos não foram incluídos no PDF',
+          variant: 'default',
+        });
+      }
+
       // Salvar PDF
       doc.save(`relatorio-os_${format(new Date(), 'yyyy-MM-dd_HHmm')}.pdf`);
 
       toast({
         title: 'Relatório exportado com sucesso',
-        description: `${orders.length} O.S. exportadas.`,
+        description: `${orders.length} O.S. exportadas com gráficos.`,
       });
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
@@ -817,7 +875,7 @@ const Reports = () => {
         {/* Grid de gráficos principais */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Tendência de Abertura e Conclusão */}
-          <Card>
+          <Card ref={trendChartRef}>
             <CardHeader>
               <CardTitle>Tendência de Abertura e Conclusão</CardTitle>
               <CardDescription>Últimos 30 dias</CardDescription>
@@ -849,7 +907,7 @@ const Reports = () => {
           </Card>
 
           {/* Chamados por Nível de Solicitação */}
-          <Card>
+          <Card ref={priorityChartRef}>
             <CardHeader>
               <CardTitle>Chamados por Nível de Solicitação</CardTitle>
               <CardDescription>Distribuição por nível de urgência</CardDescription>
