@@ -53,16 +53,6 @@ const Auth = () => {
   const videoId = tutorialUrlSolicitante.split("v=")[1]?.split("&")[0];
 
   useEffect(() => {
-    const clearResidualSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session && !user) {
-        await supabase.auth.signOut({ scope: 'local' });
-      }
-    };
-    clearResidualSession();
-  }, []);
-
-  useEffect(() => {
     if (user) {
       navigate('/dashboard');
     }

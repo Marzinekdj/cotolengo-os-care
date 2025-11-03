@@ -91,13 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    // Verificar e limpar qualquer sessão residual
-    const { data: currentSession } = await supabase.auth.getSession();
-    if (currentSession.session) {
-      await supabase.auth.signOut({ scope: 'local' });
-      await new Promise(resolve => setTimeout(resolve, 300));
-    }
-    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
