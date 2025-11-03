@@ -455,7 +455,10 @@ const Reports = () => {
   };
 
   const captureChartAsImage = async (element: HTMLElement): Promise<string> => {
-    const canvas = await html2canvas(element, {
+    const html2canvasModule = await import('html2canvas');
+    const html2canvasFunc = html2canvasModule.default;
+    
+    const canvas = await html2canvasFunc(element, {
       scale: 2,
       backgroundColor: '#ffffff',
       logging: false,
