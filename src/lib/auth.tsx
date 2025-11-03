@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -90,6 +91,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    // Verificar e limpar qualquer sessão residual
+    const { data: currentSession } = await supabase.auth.getSession();
+    if (currentSession.session) {
+      await supabase.auth.signOut({ scope: 'local' });
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -114,8 +122,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setIsSigningOut(true);
     setProfile(null);
+    setUser(null);
+    setSession(null);
+    
+    // Limpar storage explicitamente
+    localStorage.removeItem('sb-ewvkrmhdeftuncjkkzkc-auth-token');
+    
+    await supabase.auth.signOut({ scope: 'local' });
+    
+    // Pequeno delay para garantir limpeza completa
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setIsSigningOut(false);
     navigate('/auth');
   };
 

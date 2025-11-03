@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,6 +51,16 @@ const Auth = () => {
 
   const tutorialUrlSolicitante = "https://www.youtube.com/watch?v=SEU_VIDEO";
   const videoId = tutorialUrlSolicitante.split("v=")[1]?.split("&")[0];
+
+  useEffect(() => {
+    const clearResidualSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session && !user) {
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+    };
+    clearResidualSession();
+  }, []);
 
   useEffect(() => {
     if (user) {
