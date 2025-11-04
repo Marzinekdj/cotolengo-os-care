@@ -42,6 +42,31 @@ const Dashboard = () => {
     }
   }, [profile]);
 
+  // Realtime para notificações
+  useEffect(() => {
+    if (!profile) return;
+    
+    const channel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${profile.id}`
+        },
+        () => {
+          fetchUnreadNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile]);
+
   const fetchServiceOrders = async () => {
     try {
       let query = supabase
