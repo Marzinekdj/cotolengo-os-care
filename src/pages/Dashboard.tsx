@@ -42,12 +42,12 @@ const Dashboard = () => {
     }
   }, [profile]);
 
-  // Realtime para notificações
+  // Realtime para notificações e service orders
   useEffect(() => {
     if (!profile) return;
     
     const channel = supabase
-      .channel('notifications-changes')
+      .channel('dashboard-realtime')
       .on(
         'postgres_changes',
         {
@@ -58,6 +58,18 @@ const Dashboard = () => {
         },
         () => {
           fetchUnreadNotifications();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'service_orders'
+        },
+        () => {
+          // Atualizar lista de O.S. quando uma nova for criada
+          fetchServiceOrders();
         }
       )
       .subscribe();
