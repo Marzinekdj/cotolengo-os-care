@@ -80,8 +80,16 @@ const NewOS = () => {
     }
   }, [profile, navigate]);
 
-  // Limpar valores de categoria inválidos que podem estar em cache
+  // Limpar valores de categoria inválidos que podem estar em cache ou localStorage
   useEffect(() => {
+    // Limpar localStorage que possa ter dados antigos
+    try {
+      localStorage.removeItem('newOS_formData');
+      sessionStorage.removeItem('newOS_formData');
+    } catch (e) {
+      console.error('Erro ao limpar storage:', e);
+    }
+
     const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'];
     if (formData.category && !validCategories.includes(formData.category)) {
       console.warn('Categoria inválida detectada e removida:', formData.category);
@@ -352,11 +360,21 @@ const NewOS = () => {
         }
       }
 
+      // BLOQUEIO FINAL: Garantir que apenas categorias válidas sejam enviadas
+      const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'] as const;
+      const safeCategory = validCategories.includes(formData.category as any) 
+        ? (formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros')
+        : 'outros'; // Fallback para 'outros' se categoria for inválida
+
+      if (safeCategory !== formData.category) {
+        console.error('Categoria inválida bloqueada:', formData.category, '-> Usando fallback:', safeCategory);
+      }
+
       const { data, error} = await supabase
         .from('service_orders')
         .insert([
           {
-            category: formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros',
+            category: safeCategory, // Usar categoria validada
             sector_id: sectorId,
             responsible_department_id: formData.responsibleDepartmentId || null,
             equipment: formData.equipment,
