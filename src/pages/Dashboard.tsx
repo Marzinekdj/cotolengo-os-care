@@ -42,43 +42,6 @@ const Dashboard = () => {
     }
   }, [profile]);
 
-  // Realtime para notificações e service orders
-  useEffect(() => {
-    if (!profile) return;
-    
-    const channel = supabase
-      .channel('dashboard-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${profile.id}`
-        },
-        () => {
-          fetchUnreadNotifications();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'service_orders'
-        },
-        () => {
-          // Atualizar lista de O.S. quando uma nova for criada
-          fetchServiceOrders();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile]);
-
   const fetchServiceOrders = async () => {
     try {
       let query = supabase
