@@ -116,24 +116,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     setIsSigningOut(true);
-    
-    // Limpar estados imediatamente
     setProfile(null);
     setUser(null);
     setSession(null);
     
-    // Limpar todo o localStorage relacionado ao Supabase
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
+    // Limpar storage explicitamente
+    localStorage.removeItem('sb-ewvkrmhdeftuncjkkzkc-auth-token');
     
-    // Fazer logout no Supabase
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     
-    // Delay para garantir limpeza completa
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Pequeno delay para garantir limpeza completa
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     setIsSigningOut(false);
     navigate('/auth');
