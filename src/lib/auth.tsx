@@ -30,7 +30,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,20 +114,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    setIsSigningOut(true);
+    await supabase.auth.signOut();
     setProfile(null);
-    setUser(null);
-    setSession(null);
-    
-    // Limpar storage explicitamente
-    localStorage.removeItem('sb-ewvkrmhdeftuncjkkzkc-auth-token');
-    
-    await supabase.auth.signOut({ scope: 'local' });
-    
-    // Pequeno delay para garantir limpeza completa
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    setIsSigningOut(false);
     navigate('/auth');
   };
 
