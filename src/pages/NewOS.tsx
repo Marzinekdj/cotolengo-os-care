@@ -111,6 +111,7 @@ const NewOS = () => {
       'equipamento_medico': 'Engenharia Clínica',
       'eletrica': 'Manutenção',
       'hidraulica': 'Manutenção',
+      'outros': 'Manutenção',
     };
     
     const suggestedName = suggestions[category];
