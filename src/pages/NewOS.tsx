@@ -26,7 +26,9 @@ interface Department {
 
 // Validation schemas for input sanitization and length limits
 const serviceOrderSchema = z.object({
-  category: z.string().min(1, 'Categoria é obrigatória'),
+  category: z.enum(['eletrica', 'hidraulica', 'equipamento_medico', 'outros'], {
+    errorMap: () => ({ message: 'Categoria inválida. Selecione uma das opções disponíveis.' })
+  }),
   equipment: z.string()
     .trim()
     .min(3, 'Equipamento deve ter pelo menos 3 caracteres')
@@ -78,6 +80,28 @@ const NewOS = () => {
     }
   }, [profile, navigate]);
 
+  // Limpar valores de categoria inválidos que podem estar em cache ou localStorage
+  useEffect(() => {
+    // Limpar localStorage que possa ter dados antigos
+    try {
+      localStorage.removeItem('newOS_formData');
+      sessionStorage.removeItem('newOS_formData');
+    } catch (e) {
+      console.error('Erro ao limpar storage:', e);
+    }
+
+    const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'];
+    if (formData.category && !validCategories.includes(formData.category)) {
+      console.warn('Categoria inválida detectada e removida:', formData.category);
+      setFormData({ ...formData, category: '' });
+      toast({
+        title: 'Categoria inválida',
+        description: 'A categoria anterior era inválida e foi removida. Por favor, selecione uma nova categoria.',
+        variant: 'destructive',
+      });
+    }
+  }, []);
+
   const fetchSectors = async () => {
     const { data, error } = await supabase
       .from('sectors')
@@ -111,6 +135,7 @@ const NewOS = () => {
       'equipamento_medico': 'Engenharia Clínica',
       'eletrica': 'Manutenção',
       'hidraulica': 'Manutenção',
+      'outros': 'Manutenção',
     };
     
     const suggestedName = suggestions[category];
@@ -239,6 +264,17 @@ const NewOS = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validação rigorosa de categoria ANTES de qualquer processamento
+    const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'] as const;
+    if (!validCategories.includes(formData.category as any)) {
+      toast({
+        title: 'Categoria inválida',
+        description: 'Por favor, selecione uma categoria válida da lista',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     // Validar campos obrigatórios básicos
     if (!formData.category || !formData.equipment || !formData.description || !formData.priority) {
       toast({
@@ -324,11 +360,21 @@ const NewOS = () => {
         }
       }
 
+      // BLOQUEIO FINAL: Garantir que apenas categorias válidas sejam enviadas
+      const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'] as const;
+      const safeCategory = validCategories.includes(formData.category as any) 
+        ? (formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros')
+        : 'outros'; // Fallback para 'outros' se categoria for inválida
+
+      if (safeCategory !== formData.category) {
+        console.error('Categoria inválida bloqueada:', formData.category, '-> Usando fallback:', safeCategory);
+      }
+
       const { data, error} = await supabase
         .from('service_orders')
         .insert([
           {
-            category: formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros',
+            category: safeCategory, // Usar categoria validada
             sector_id: sectorId,
             responsible_department_id: formData.responsibleDepartmentId || null,
             equipment: formData.equipment,
