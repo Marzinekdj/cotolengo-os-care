@@ -80,23 +80,33 @@ const NewOS = () => {
     }
   }, [profile, navigate]);
 
-  // Limpar valores de categoria inválidos que podem estar em cache ou localStorage
+  // LIMPEZA COMPLETA DE CACHE - Remover dados antigos que podem ter categorias inválidas
   useEffect(() => {
-    // Limpar localStorage que possa ter dados antigos
+    console.log('🧹 [NewOS] Limpando cache e validando dados...');
+    
+    // Limpar TODOS os dados relacionados a formulários de O.S.
     try {
-      localStorage.removeItem('newOS_formData');
-      sessionStorage.removeItem('newOS_formData');
+      const keysToRemove = ['newOS_formData', 'os_form', 'service_order_draft'];
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      });
+      console.log('✅ Cache limpo com sucesso');
     } catch (e) {
-      console.error('Erro ao limpar storage:', e);
+      console.error('❌ Erro ao limpar storage:', e);
     }
 
+    // LOG: Estado inicial da categoria
+    console.log('📊 [NewOS] Categoria inicial:', formData.category);
+
+    // Validar e limpar categoria se for inválida
     const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'];
     if (formData.category && !validCategories.includes(formData.category)) {
-      console.warn('Categoria inválida detectada e removida:', formData.category);
-      setFormData({ ...formData, category: '' });
+      console.error('🚨 [BLOQUEADO] Categoria inválida detectada:', formData.category);
+      setFormData(prev => ({ ...prev, category: '' }));
       toast({
-        title: 'Categoria inválida',
-        description: 'A categoria anterior era inválida e foi removida. Por favor, selecione uma nova categoria.',
+        title: 'Categoria inválida detectada',
+        description: `A categoria "${formData.category}" não é válida. Por favor, selecione uma das opções disponíveis.`,
         variant: 'destructive',
       });
     }
@@ -264,16 +274,30 @@ const NewOS = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação rigorosa de categoria ANTES de qualquer processamento
+    console.log('📝 [NewOS] Iniciando handleSubmit...');
+    console.log('📊 [NewOS] Estado atual do formData:', formData);
+    
+    // VALIDAÇÃO CAMADA 3: Validação final no submit
     const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'] as const;
+    
+    console.log('🔍 [NewOS] Validando categoria:', formData.category);
+    
     if (!validCategories.includes(formData.category as any)) {
+      console.error('🚨 [BLOQUEADO NO SUBMIT] Categoria inválida:', formData.category);
+      console.error('📋 Categorias válidas:', validCategories);
+      
       toast({
-        title: 'Categoria inválida',
-        description: 'Por favor, selecione uma categoria válida da lista',
+        title: 'Erro de validação - Categoria inválida',
+        description: `A categoria "${formData.category}" não é válida. Por favor, selecione uma das opções: Elétrica, Hidráulica, Equipamento Médico ou Outros.`,
         variant: 'destructive',
       });
+      
+      // Forçar reset da categoria
+      setFormData(prev => ({ ...prev, category: '' }));
       return;
     }
+    
+    console.log('✅ Categoria validada com sucesso:', formData.category);
     
     // Validar campos obrigatórios básicos
     if (!formData.category || !formData.equipment || !formData.description || !formData.priority) {
@@ -360,15 +384,29 @@ const NewOS = () => {
         }
       }
 
-      // BLOQUEIO FINAL: Garantir que apenas categorias válidas sejam enviadas
-      const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'] as const;
-      const safeCategory = validCategories.includes(formData.category as any) 
-        ? (formData.category as 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros')
-        : 'outros'; // Fallback para 'outros' se categoria for inválida
+      // VALIDAÇÃO FINAL DE SEGURANÇA: Type guard para garantir tipo correto
+      type ValidCategory = 'eletrica' | 'hidraulica' | 'equipamento_medico' | 'outros';
+      const validCategories: readonly ValidCategory[] = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'] as const;
+      
+      const isValidCategory = (cat: string): cat is ValidCategory => {
+        return validCategories.includes(cat as ValidCategory);
+      };
+
+      const safeCategory: ValidCategory = isValidCategory(formData.category) 
+        ? formData.category 
+        : 'outros'; // Fallback seguro
 
       if (safeCategory !== formData.category) {
-        console.error('Categoria inválida bloqueada:', formData.category, '-> Usando fallback:', safeCategory);
+        console.error('🚨 [BLOQUEIO FINAL] Categoria inválida detectada no INSERT:', formData.category);
+        console.error('🔄 Usando fallback seguro:', safeCategory);
+        toast({
+          title: 'Categoria corrigida',
+          description: `A categoria foi corrigida automaticamente para "${safeCategory}".`,
+          variant: 'default',
+        });
       }
+
+      console.log('📤 [NewOS] Categoria que será enviada ao banco:', safeCategory);
 
       const { data, error} = await supabase
         .from('service_orders')
@@ -442,6 +480,22 @@ const NewOS = () => {
                 <Select 
                   value={formData.category} 
                   onValueChange={(value) => {
+                    // VALIDAÇÃO CAMADA 2: Bloquear valores inválidos no onChange
+                    const validCategories = ['eletrica', 'hidraulica', 'equipamento_medico', 'outros'];
+                    
+                    console.log('🔄 [NewOS] Tentativa de mudança de categoria:', value);
+                    
+                    if (!validCategories.includes(value)) {
+                      console.error('🚨 [BLOQUEADO] Categoria inválida no onChange:', value);
+                      toast({
+                        title: 'Categoria inválida',
+                        description: `A categoria "${value}" não é válida. Selecione apenas: Elétrica, Hidráulica, Equipamento Médico ou Outros.`,
+                        variant: 'destructive',
+                      });
+                      return; // Bloquear a mudança
+                    }
+
+                    console.log('✅ Categoria válida aceita:', value);
                     const suggestedDept = getSuggestedDepartment(value);
                     setFormData({ 
                       ...formData, 
