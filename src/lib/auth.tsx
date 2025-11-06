@@ -30,7 +30,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -115,27 +114,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    setIsSigningOut(true);
-    
-    // Limpar estados imediatamente
-    setProfile(null);
-    setUser(null);
-    setSession(null);
-    
-    // Limpar todo o localStorage relacionado ao Supabase
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith('sb-')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Fazer logout no Supabase
     await supabase.auth.signOut();
-    
-    // Delay para garantir limpeza completa
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    setIsSigningOut(false);
+    setProfile(null);
     navigate('/auth');
   };
 
