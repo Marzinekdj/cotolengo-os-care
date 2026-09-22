@@ -30,17 +30,16 @@ const Dashboard = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
-    if (!authLoading && !profile) {
-      navigate('/auth');
+    if (!authLoading) {
+      if (profile) {
+        fetchServiceOrders();
+        fetchUnreadNotifications();
+      } else {
+        setServiceOrders([]);
+        setLoading(false);
+      }
     }
-  }, [profile, authLoading, navigate]);
-
-  useEffect(() => {
-    if (profile) {
-      fetchServiceOrders();
-      fetchUnreadNotifications();
-    }
-  }, [profile]);
+  }, [profile, authLoading]);
 
   // Realtime para notificações e service orders
   useEffect(() => {
