@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             fetchUserProfile(session.user.id);
           }, 0);
         } else {
-          setProfile(null);
+          setProfile(DEMO_PROFILE);
         }
       }
     );
@@ -64,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
       } else {
+        setProfile(DEMO_PROFILE);
         setLoading(false);
       }
     });
