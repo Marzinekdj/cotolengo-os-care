@@ -33,7 +33,7 @@ const ResetPassword = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     // Escutar mudanças de autenticação em tempo real
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
