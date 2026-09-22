@@ -198,30 +198,38 @@ const Dashboard = () => {
               <img src={logoCotolengo} alt="Pequeno Cotolengo" className="h-12 object-contain" />
               <div>
                 <h1 className="text-xl font-bold text-foreground">Controle de O.S.</h1>
-                <p className="text-sm text-muted-foreground">{profile.full_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {profile?.full_name || 'Visitante'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <HelpCoordButton />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                onClick={() => navigate('/notifications')}
-              >
-                <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {unreadNotifications}
-                  </span>
-                )}
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => navigate('/profile')}>
-                <Settings className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={signOut}>
-                <LogOut className="h-5 w-5" />
-              </Button>
+              {profile ? (
+                <>
+                  <HelpCoordButton />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative"
+                    onClick={() => navigate('/notifications')}
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadNotifications > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {unreadNotifications}
+                      </span>
+                    )}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => navigate('/profile')}>
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={signOut}>
+                    <LogOut className="h-5 w-5" />
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={() => navigate('/auth')}>Entrar</Button>
+              )}
             </div>
           </div>
         </div>
