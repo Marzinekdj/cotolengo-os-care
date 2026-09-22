@@ -251,7 +251,7 @@ const Dashboard = () => {
               Nova O.S.
             </Button>
             {/* UX only - actual access controlled by RLS policies */}
-            {profile.role === 'coordenacao' && (
+            {profile?.role === 'coordenacao' && (
               <Button variant="outline" onClick={() => navigate('/reports')} className="gap-2">
                 <FileText className="h-4 w-4" />
                 Relatórios
