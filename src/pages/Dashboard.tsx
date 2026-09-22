@@ -159,7 +159,7 @@ const Dashboard = () => {
     return categories[category as keyof typeof categories] || category;
   };
 
-  if (authLoading || !profile) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center">
         <Skeleton className="h-96 w-96" />
