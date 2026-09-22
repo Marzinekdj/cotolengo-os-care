@@ -25,6 +25,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Modo demonstração: permite navegar pelo app sem login
+const DEMO_PROFILE: UserProfile = {
+  id: '00000000-0000-0000-0000-000000000000',
+  full_name: 'Modo Demonstração',
+  email: 'demo@local',
+  role: 'coordenacao',
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
