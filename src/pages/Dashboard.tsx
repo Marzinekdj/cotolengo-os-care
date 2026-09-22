@@ -185,7 +185,7 @@ const Dashboard = () => {
     },
   };
 
-  const config = roleConfig[profile.role || 'solicitante'];
+  const config = roleConfig[profile?.role || 'solicitante'];
   const RoleIcon = config.icon;
 
   return (
