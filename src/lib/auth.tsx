@@ -145,7 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await new Promise(resolve => setTimeout(resolve, 800));
     
     setIsSigningOut(false);
-    navigate('/auth');
+    navigate('/dashboard');
   };
 
   return (
