@@ -25,6 +25,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Modo demonstração: permite navegar pelo app sem login
+const DEMO_PROFILE: UserProfile = {
+  id: '00000000-0000-0000-0000-000000000000',
+  full_name: 'Modo Demonstração',
+  email: 'demo@local',
+  role: 'coordenacao',
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -44,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             fetchUserProfile(session.user.id);
           }, 0);
         } else {
-          setProfile(null);
+          setProfile(DEMO_PROFILE);
         }
       }
     );
@@ -56,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
       } else {
+        setProfile(DEMO_PROFILE);
         setLoading(false);
       }
     });
@@ -136,7 +145,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await new Promise(resolve => setTimeout(resolve, 800));
     
     setIsSigningOut(false);
-    navigate('/auth');
+    navigate('/dashboard');
   };
 
   return (
